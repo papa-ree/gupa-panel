@@ -5,17 +5,13 @@ namespace Bale\GupaPanel\Models;
 use Bale\Core\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class PanelBlockedIp extends Model
 {
-    use LogsActivity;
+    use HasUuids, LogsActivity;
 
     protected $table = 'gupa_panel_blocked_ips';
-
-    public $incrementing = false;
-
-    protected $keyType = 'string';
 
     protected $fillable = [
         'ip',
@@ -30,15 +26,6 @@ class PanelBlockedIp extends Model
     ];
 
     protected static $recordEvents = ['created', 'deleted'];
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $model) {
-            if (is_null($model->id)) {
-                $model->id = (string) Str::uuid();
-            }
-        });
-    }
 
     public function scopeNotExpired(Builder $query): Builder
     {

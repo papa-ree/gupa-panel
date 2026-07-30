@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('gupa_panel_whitelists', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('ip', 45)->unique();
             $table->string('reason')->nullable();
             $table->timestamp('created_at')->useCurrent();

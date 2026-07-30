@@ -4,32 +4,19 @@ namespace Bale\GupaPanel\Models;
 
 use Bale\Core\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class PanelBlacklist extends Model
 {
-    use LogsActivity;
+    use HasUuids, LogsActivity;
 
     protected $table = 'gupa_panel_blacklists';
-
-    public $incrementing = false;
-
-    protected $keyType = 'string';
 
     public $timestamps = false;
 
     protected $fillable = ['ip', 'reason'];
 
     protected static $recordEvents = ['created', 'deleted'];
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $model) {
-            if (is_null($model->id)) {
-                $model->id = (string) Str::uuid();
-            }
-        });
-    }
 
     public function getActivitylogOptions(): \Spatie\Activitylog\Support\LogOptions
     {

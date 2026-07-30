@@ -3,15 +3,14 @@
 namespace Bale\GupaPanel\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class KnownCrawler extends Model
 {
+    use \Illuminate\Database\Eloquent\Concerns\HasUuids;
+
     protected $table = 'gupa_known_crawlers';
-
-    public $incrementing = false;
-
-    protected $keyType = 'string';
 
     protected $guarded = ['id'];
 
@@ -19,13 +18,6 @@ class KnownCrawler extends Model
         'verified_ip_ranges' => 'array',
         'is_active' => 'boolean',
     ];
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $model) {
-            $model->id = (string) Str::uuid();
-        });
-    }
 
     public function scopeActive($query)
     {
