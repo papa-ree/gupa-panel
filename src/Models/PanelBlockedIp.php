@@ -36,12 +36,4 @@ class PanelBlockedIp extends Model
                 ->orWhereNull('expires_at');
         });
     }
-
-    public function getActivitylogOptions(): \Spatie\Activitylog\Support\LogOptions
-    {
-        return \Spatie\Activitylog\Support\LogOptions::defaults()
-            ->logOnly(['ip', 'reason', 'is_permanent'])
-            ->logOnlyDirty()
-            ->dontLogIfAttributesChangedOnly(['updated_at']);
-    }
 }
