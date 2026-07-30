@@ -46,7 +46,7 @@
                 </div>
                 <x-lucide-database class="w-10 h-10 text-indigo-500" />
             </div>
-            <x-core::button wire:click="syncAll" variant="primary" class="w-full" :label="__('Sync All')" />
+            <x-core::button wire:click="syncAll" variant="primary" class="w-full" type="button" :label="__('Sync All')" />
         </div>
 
         {{-- Sync Blacklists --}}
@@ -58,7 +58,7 @@
                 </div>
                 <x-lucide-shield-alert class="w-10 h-10 text-red-500" />
             </div>
-            <x-core::button wire:click="syncBlacklists" variant="danger" class="w-full" :label="__('Sync Blacklists')" />
+            <x-core::button wire:click="syncBlacklists" variant="danger" class="w-full" type="button" :label="__('Sync Blacklists')" />
         </div>
 
         {{-- Sync Whitelists --}}
@@ -70,7 +70,7 @@
                 </div>
                 <x-lucide-shield-check class="w-10 h-10 text-green-500" />
             </div>
-            <x-core::button wire:click="syncWhitelists" variant="success" class="w-full" :label="__('Sync Whitelists')" />
+            <x-core::button wire:click="syncWhitelists" variant="success" class="w-full" type="button" :label="__('Sync Whitelists')" />
         </div>
 
         {{-- Sync Blocked IPs --}}
@@ -82,7 +82,7 @@
                 </div>
                 <x-lucide-shield-off class="w-10 h-10 text-orange-500" />
             </div>
-            <x-core::button wire:click="syncBlockedIps" variant="danger" class="w-full" :label="__('Sync Blocked IPs')" />
+            <x-core::button wire:click="syncBlockedIps" variant="danger" class="w-full" type="button" :label="__('Sync Blocked IPs')" />
         </div>
 
         {{-- Sync Logs (from tenant to landlord) --}}
@@ -94,7 +94,7 @@
                 </div>
                 <x-lucide-activity class="w-10 h-10 text-purple-500" />
             </div>
-            <x-core::button wire:click="syncLogs" variant="primary" class="w-full" :label="__('Sync Logs from Tenants')" />
+            <x-core::button wire:click="syncLogs" variant="primary" class="w-full" type="button" :label="__('Sync Logs from Tenants')" />
         </div>
 
         {{-- Status & Info --}}

@@ -2,15 +2,17 @@
 
 namespace Bale\GupaPanel\Livewire\Pages\Sync;
 
-use Bale\GupaPanel\Jobs\SyncBlacklistsToTenant;
-use Bale\GupaPanel\Jobs\SyncWhitelistsToTenant;
-use Bale\GupaPanel\Jobs\SyncBlockedIpsToTenant;
+use Bale\GupaPanel\Jobs\SyncAllToTenants;
+use Bale\GupaPanel\Jobs\SyncBlacklistToTenant;
+use Bale\GupaPanel\Jobs\SyncBlockedIpToTenant;
 use Bale\GupaPanel\Jobs\SyncLogsFromTenant;
+use Bale\GupaPanel\Jobs\SyncWhitelistToTenant;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Models\PanelWhitelist;
 use Bale\GupaPanel\Services\GupaSyncService;
+use Bale\Cms\Models\BaleList;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -43,38 +45,44 @@ class Index extends Component
 
     public function syncAll(): void
     {
-        $this->dispatchBrowserEvent('toast', [
-            'message' => 'Sync jobs dispatched for all tenants.',
-            'type' => 'success',
-        ]);
-
-        SyncBlacklistsToTenant::dispatch();
-        SyncWhitelistsToTenant::dispatch();
-        SyncBlockedIpsToTenant::dispatch();
+        SyncAllToTenants::dispatch();
+        $this->dispatch('toast', message: 'Sync jobs dispatched for all tenants.', type: 'success');
     }
 
     public function syncBlacklists(): void
     {
-        SyncBlacklistsToTenant::dispatch();
-        $this->dispatchBrowserEvent('toast', ['message' => 'Blacklist sync dispatched.', 'type' => 'success']);
+        $tenants = BaleList::all();
+        foreach ($tenants as $tenant) {
+            SyncBlacklistToTenant::dispatch($tenant->id);
+        }
+        $this->dispatch('toast', message: 'Blacklist sync dispatched.', type: 'success');
     }
 
     public function syncWhitelists(): void
     {
-        SyncWhitelistsToTenant::dispatch();
-        $this->dispatchBrowserEvent('toast', ['message' => 'Whitelist sync dispatched.', 'type' => 'success']);
+        $tenants = BaleList::all();
+        foreach ($tenants as $tenant) {
+            SyncWhitelistToTenant::dispatch($tenant->id);
+        }
+        $this->dispatch('toast', message: 'Whitelist sync dispatched.', type: 'success');
     }
 
     public function syncBlockedIps(): void
     {
-        SyncBlockedIpsToTenant::dispatch();
-        $this->dispatchBrowserEvent('toast', ['message' => 'Blocked IPs sync dispatched.', 'type' => 'success']);
+        $tenants = BaleList::all();
+        foreach ($tenants as $tenant) {
+            SyncBlockedIpToTenant::dispatch($tenant->id);
+        }
+        $this->dispatch('toast', message: 'Blocked IPs sync dispatched.', type: 'success');
     }
 
     public function syncLogs(): void
     {
-        SyncLogsFromTenant::dispatch();
-        $this->dispatchBrowserEvent('toast', ['message' => 'Log sync dispatched.', 'type' => 'success']);
+        $tenants = BaleList::all();
+        foreach ($tenants as $tenant) {
+            SyncLogsFromTenant::dispatch($tenant->id);
+        }
+        $this->dispatch('toast', message: 'Log sync dispatched.', type: 'success');
     }
 
     public function render()
