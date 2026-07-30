@@ -6,16 +6,6 @@
     "authors": [
         { "name": "Ricky Romdhoni", "email": "ricky.romdhoni@gmail.com", "role": "Developer" }
     ],
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../bale-core"
-        },
-        {
-            "type": "path",
-            "url": "../bale-cms"
-        }
-    ],
     "require": {
         "php": "^8.2",
         "illuminate/contracts": "^11.0||^12.0",

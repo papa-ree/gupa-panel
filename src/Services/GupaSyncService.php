@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Activitylog\Facades\Activity;
+use Spatie\Activitylog\Models\Activity as ActivityModel;
 
 class GupaSyncService
 {
@@ -263,5 +264,15 @@ class GupaSyncService
             'prefix' => '',
             'strict' => true,
         ]);
+    }
+
+    public function getLastSyncTime(): ?string
+    {
+        $lastSync = ActivityModel::where('log_name', 'gupa-panel-sync')
+            ->whereNotNull('created_at')
+            ->latest('created_at')
+            ->first();
+
+        return $lastSync?->created_at?->toIso8601String();
     }
 }

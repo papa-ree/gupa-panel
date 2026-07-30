@@ -30,6 +30,8 @@ class GupaPanelServiceProvider extends ServiceProvider
         $this->offerPublishing();
         $this->registerLivewireComponents();
         $this->registerSchedules();
+
+        $this->loadMigrations();
     }
 
     protected function registerCommands(): void

@@ -57,10 +57,10 @@ class InstallGupaPanelCommand extends Command
     {
         $this->info('Publishing and running migrations...');
 
-        $sourcePath = __DIR__.'/../../database/migrations/';
+        $sourcePath = __DIR__ . '/../../database/migrations/';
         $targetPath = database_path('migrations/');
 
-        if (! is_dir($sourcePath)) {
+        if (!is_dir($sourcePath)) {
             $this->warn('No migration stubs found.');
 
             return;
@@ -68,24 +68,20 @@ class InstallGupaPanelCommand extends Command
 
         $published = 0;
 
-        foreach (glob($sourcePath.'*.php.stub') as $stubFile) {
+        foreach (glob($sourcePath . '*.php.stub') as $stubFile) {
             $filename = basename($stubFile);
             $migrationName = str_replace('.php.stub', '.php', $filename);
 
-            $parts = explode('_', $filename, 5);
-            $stubPrefix = $parts[0].'_'.$parts[1].'_'.$parts[2].'_'.$parts[3].'_';
+            $existing = glob($targetPath . '*' . $migrationName);
 
-            $existing = glob($targetPath.'*'.$migrationName);
-
-            if (! empty($existing)) {
+            if (!empty($existing)) {
                 $this->warn("  Migration {$migrationName} already exists, skipping.");
 
                 continue;
             }
 
-            $timestamp = date('Y_m_d_His');
-            $newFilename = $timestamp.'_'.$migrationName;
-            $newFile = $targetPath.$newFilename;
+            $newFilename = $migrationName;
+            $newFile = $targetPath . $newFilename;
 
             File::copy($stubFile, $newFile);
             $this->info("  Published: {$newFilename}");
@@ -94,9 +90,9 @@ class InstallGupaPanelCommand extends Command
 
         if ($published > 0) {
             $this->call('migrate');
-        } else {
-            $this->info('  No new migrations to publish.');
         }
+
+        $this->call('migrate');
     }
 
     protected function seedPermissions(): void

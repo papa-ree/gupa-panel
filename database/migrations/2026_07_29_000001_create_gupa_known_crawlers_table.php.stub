@@ -9,9 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('gupa_known_crawlers', function (Blueprint $table) {
-            $table->uuid('id')->primary();
+            $table->id();
             $table->string('name');
-            $table->string('provider'); // google, meta, twitter, bing, linkedin, slack, telegram, discord, whatsapp, other
+            $table->string('provider');
             $table->string('user_agent_pattern');
             $table->json('verified_ip_ranges')->nullable();
             $table->boolean('is_active')->default(true);

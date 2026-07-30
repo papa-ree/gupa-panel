@@ -2,13 +2,15 @@
 
 namespace Bale\GupaPanel\Livewire\Pages;
 
-use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelBlockedIp;
+use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Models\PanelWhitelist;
 use Bale\GupaPanel\Services\FalsePositiveDetector;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('core::layouts.app')]
 class Overview extends Component
 {
     public array $stats = [];
@@ -30,13 +32,11 @@ class Overview extends Component
         ];
 
         $this->recentLogs = PanelRequestLog::latest()->limit(10)->get()->toArray();
-
         $this->recentFalsePositives = $fpDetector->getFalsePositives(5);
     }
 
     public function render()
     {
-        return view('gupa-panel::livewire.pages.overview')
-            ->layout('core::layouts.app');
+        return view('gupa-panel::livewire.pages.overview');
     }
 }

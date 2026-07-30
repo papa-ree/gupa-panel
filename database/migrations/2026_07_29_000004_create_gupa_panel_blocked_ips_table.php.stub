@@ -9,13 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('gupa_panel_blocked_ips', function (Blueprint $table) {
-            $table->uuid('id')->primary();
+            $table->id();
             $table->string('ip', 45);
             $table->string('reason')->default('manual block');
             $table->boolean('is_permanent')->default(false);
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
-
             $table->index('ip');
             $table->index('is_permanent');
             $table->index('expires_at');
