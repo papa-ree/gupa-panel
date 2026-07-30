@@ -2,14 +2,13 @@
 
 namespace Bale\GupaPanel\Models;
 
-use Bale\Core\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class PanelBlockedIp extends Model
 {
-    use HasUuids, LogsActivity;
+    use HasUuids;
 
     protected $table = 'gupa_panel_blocked_ips';
 
