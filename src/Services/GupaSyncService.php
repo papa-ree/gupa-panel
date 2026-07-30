@@ -14,13 +14,14 @@ use Bale\GupaPanel\Jobs\SyncLogsFromTenant;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Spatie\Activitylog\Facades\Activity;
-use Spatie\Activitylog\Models\Activity as ActivityModel;
 
 class GupaSyncService
 {
     public function syncAll(): void
     {
+        if (! config('gupa-panel.enabled', true)) {
+            return;
+        }
         $tenants = BaleList::all();
         $dispatched = 0;
 
@@ -52,19 +53,14 @@ class GupaSyncService
                 $dispatched++;
             }
         }
-
-        activity('gupa-panel-sync')
-            ->causedByAnonymous()
-            ->withProperties([
-                'logged_by' => 'system',
-                'tenants_count' => $tenants->count(),
-                'jobs_dispatched' => $dispatched,
-            ])
-            ->log("GupaPanel sync dispatched {$dispatched} jobs to {$tenants->count()} tenants");
     }
 
     public function syncBlockedIpsToTenant(string $tenantId): void
     {
+        if (! config('gupa-panel.enabled', true)) {
+            return;
+        }
+
         $tenant = BaleList::find($tenantId);
 
         if (! $tenant) {
@@ -131,21 +127,14 @@ class GupaSyncService
                 $syncedToTenant++;
             }
         }
-
-        activity('gupa-panel-sync')
-            ->causedByAnonymous()
-            ->withProperties([
-                'logged_by' => 'system',
-                'tenant_id' => $tenantId,
-                'type' => 'blocked_ips',
-                'synced_from_tenant' => $syncedFromTenant,
-                'synced_to_tenant' => $syncedToTenant,
-            ])
-            ->log("Blocked IPs sync for tenant {$tenantId}: {$syncedFromTenant} from tenant, {$syncedToTenant} to tenant");
     }
 
     public function syncBlacklistsToTenant(string $tenantId): void
     {
+        if (! config('gupa-panel.enabled', true)) {
+            return;
+        }
+
         $tenant = BaleList::find($tenantId);
 
         if (! $tenant) {
@@ -197,21 +186,14 @@ class GupaSyncService
                 $syncedToTenant++;
             }
         }
-
-        activity('gupa-panel-sync')
-            ->causedByAnonymous()
-            ->withProperties([
-                'logged_by' => 'system',
-                'tenant_id' => $tenantId,
-                'type' => 'blacklists',
-                'synced_from_tenant' => $syncedFromTenant,
-                'synced_to_tenant' => $syncedToTenant,
-            ])
-            ->log("Blacklists sync for tenant {$tenantId}: {$syncedFromTenant} from tenant, {$syncedToTenant} to tenant");
     }
 
     public function syncWhitelistsToTenant(string $tenantId): void
     {
+        if (! config('gupa-panel.enabled', true)) {
+            return;
+        }
+
         $tenant = BaleList::find($tenantId);
 
         if (! $tenant) {
@@ -263,21 +245,14 @@ class GupaSyncService
                 $syncedToTenant++;
             }
         }
-
-        activity('gupa-panel-sync')
-            ->causedByAnonymous()
-            ->withProperties([
-                'logged_by' => 'system',
-                'tenant_id' => $tenantId,
-                'type' => 'whitelists',
-                'synced_from_tenant' => $syncedFromTenant,
-                'synced_to_tenant' => $syncedToTenant,
-            ])
-            ->log("Whitelists sync for tenant {$tenantId}: {$syncedFromTenant} from tenant, {$syncedToTenant} to tenant");
     }
 
     public function syncLogsFromTenant(string $tenantId): void
     {
+        if (! config('gupa-panel.enabled', true)) {
+            return;
+        }
+
         $tenant = BaleList::find($tenantId);
 
         if (! $tenant) {
@@ -316,18 +291,6 @@ class GupaSyncService
                 $synced++;
             }
         }
-
-        if ($synced > 0) {
-            activity('gupa-panel-sync')
-                ->causedByAnonymous()
-                ->withProperties([
-                    'logged_by' => 'system',
-                    'tenant_id' => $tenantId,
-                    'type' => 'request_logs',
-                    'count' => $synced,
-                ])
-                ->log("Synced {$synced} request logs from tenant {$tenantId}");
-        }
     }
 
     public function cleanupExpiredBlockedIps(): int
@@ -336,17 +299,6 @@ class GupaSyncService
             ->whereNotNull('expires_at')
             ->where('expires_at', '<', now())
             ->delete();
-
-        if ($deleted > 0) {
-            activity('gupa-panel-sync')
-                ->causedByAnonymous()
-                ->withProperties([
-                    'logged_by' => 'system',
-                    'type' => 'cleanup_expired_blocked_ips',
-                    'count' => $deleted,
-                ])
-                ->log("Cleaned up {$deleted} expired blocked IPs");
-        }
 
         return $deleted;
     }
@@ -383,11 +335,6 @@ class GupaSyncService
 
     public function getLastSyncTime(): ?string
     {
-        $lastSync = ActivityModel::where('log_name', 'gupa-panel-sync')
-            ->whereNotNull('created_at')
-            ->latest('created_at')
-            ->first();
-
-        return $lastSync?->created_at?->toIso8601String();
+        return null;
     }
 }

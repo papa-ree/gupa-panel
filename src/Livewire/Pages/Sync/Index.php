@@ -13,6 +13,7 @@ use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Models\PanelWhitelist;
 use Bale\GupaPanel\Services\GupaSyncService;
 use Bale\Cms\Models\BaleList;
+use Spatie\Activitylog\Facades\Activity;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -46,6 +47,7 @@ class Index extends Component
     public function syncAll(): void
     {
         SyncAllToTenants::dispatch();
+        $this->logSyncAction('sync_all', 'User initiated full sync to all tenants');
         $this->dispatch('toast', message: 'Sync jobs dispatched for all tenants.', type: 'success');
     }
 
@@ -55,6 +57,7 @@ class Index extends Component
         foreach ($tenants as $tenant) {
             SyncBlacklistToTenant::dispatch($tenant->id);
         }
+        $this->logSyncAction('sync_blacklists', 'User initiated blacklist sync to all tenants');
         $this->dispatch('toast', message: 'Blacklist sync dispatched.', type: 'success');
     }
 
@@ -64,6 +67,7 @@ class Index extends Component
         foreach ($tenants as $tenant) {
             SyncWhitelistToTenant::dispatch($tenant->id);
         }
+        $this->logSyncAction('sync_whitelists', 'User initiated whitelist sync to all tenants');
         $this->dispatch('toast', message: 'Whitelist sync dispatched.', type: 'success');
     }
 
@@ -73,6 +77,7 @@ class Index extends Component
         foreach ($tenants as $tenant) {
             SyncBlockedIpToTenant::dispatch($tenant->id);
         }
+        $this->logSyncAction('sync_blocked_ips', 'User initiated blocked IPs sync to all tenants');
         $this->dispatch('toast', message: 'Blocked IPs sync dispatched.', type: 'success');
     }
 
@@ -82,7 +87,20 @@ class Index extends Component
         foreach ($tenants as $tenant) {
             SyncLogsFromTenant::dispatch($tenant->id);
         }
+        $this->logSyncAction('sync_logs', 'User initiated log sync from all tenants');
         $this->dispatch('toast', message: 'Log sync dispatched.', type: 'success');
+    }
+
+    protected function logSyncAction(string $type, string $description): void
+    {
+        Activity::inLog('gupa-panel-sync')
+            ->causedByAnonymous()
+            ->withProperties([
+                'logged_by' => 'user',
+                'type' => $type,
+                'tenants_count' => BaleList::count(),
+            ])
+            ->log($description);
     }
 
     public function render()
