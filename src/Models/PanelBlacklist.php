@@ -16,6 +16,10 @@ class PanelBlacklist extends Model
 
     protected $fillable = ['ip', 'reason'];
 
+    protected $casts = [
+        'created_at' => 'datetime:d M Y H:i',
+    ];
+
     protected static $recordEvents = ['created', 'deleted'];
 
     public function getActivitylogOptions(): \Spatie\Activitylog\Support\LogOptions

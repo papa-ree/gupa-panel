@@ -22,7 +22,9 @@ class PanelBlockedIp extends Model
 
     protected $casts = [
         'is_permanent' => 'boolean',
-        'expires_at' => 'datetime',
+        'expires_at' => 'datetime:d M Y H:i',
+        'created_at' => 'datetime:d M Y H:i',
+        'updated_at' => 'datetime:d M Y H:i',
     ];
 
     protected static $recordEvents = ['created', 'deleted'];

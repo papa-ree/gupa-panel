@@ -21,6 +21,8 @@ class PanelRequestLog extends Model
     protected $casts = [
         'metadata' => 'array',
         'tenant_log_id' => 'string',
+        'created_at' => 'datetime:d M Y H:i',
+        'updated_at' => 'datetime:d M Y H:i',
     ];
 
     public $incrementing = false;
