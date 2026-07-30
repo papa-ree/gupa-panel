@@ -301,14 +301,13 @@ class GupaSyncService
 
         foreach ($tenantLogs as $log) {
             $exists = PanelRequestLog::where('tenant_id', $tenantId)
-                ->where('ip', $log->ip)
-                ->where('created_at', $log->created_at)
+                ->where('tenant_log_id', $log->id)
                 ->exists();
 
             if (! $exists) {
                 PanelRequestLog::create([
-                    'id' => $log->id,
                     'tenant_id' => $tenantId,
+                    'tenant_log_id' => $log->id,
                     'ip' => $log->ip,
                     'metadata' => is_string($log->metadata) ? json_decode($log->metadata, true) : (array) $log->metadata,
                     'created_at' => $log->created_at,

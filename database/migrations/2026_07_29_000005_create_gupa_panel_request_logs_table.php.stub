@@ -11,11 +11,13 @@ return new class extends Migration
         Schema::create('gupa_panel_request_logs', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('tenant_id');
+            $table->uuid('tenant_log_id');
             $table->string('ip', 45);
             $table->json('metadata')->nullable();
             $table->timestamps();
             $table->index('tenant_id');
             $table->index('ip');
+            $table->unique(['tenant_id', 'tenant_log_id'], 'tenant_log_unique');
         });
     }
 

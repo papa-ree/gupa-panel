@@ -13,11 +13,16 @@ class PanelRequestLog extends Model
 
     protected $fillable = [
         'tenant_id',
+        'tenant_log_id',
         'ip',
         'metadata',
     ];
 
     protected $casts = [
         'metadata' => 'array',
+        'tenant_log_id' => 'string',
     ];
+
+    public $incrementing = false;
+    protected $keyType = 'string';
 }
