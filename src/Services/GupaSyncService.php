@@ -74,24 +74,62 @@ class GupaSyncService
         $connectionName = $this->connectionName($tenant->id);
         $this->registerTenantConnection($tenant, $connectionName);
 
-        $masterData = PanelBlockedIp::all();
-        $synced = 0;
+        if (! $this->tenantHasTable($connectionName, 'gupa_blocked_ips')) {
+            return;
+        }
 
-        foreach ($masterData as $record) {
-            DB::connection($connectionName)
-                ->table('gupa_blocked_ips')
-                ->updateOrInsert(
-                    ['id' => $record->id],
-                    [
-                        'ip' => $record->ip,
-                        'reason' => $record->reason,
-                        'is_permanent' => $record->is_permanent,
-                        'expires_at' => $record->expires_at,
-                        'created_at' => $record->created_at,
-                        'updated_at' => $record->updated_at,
-                    ]
-                );
-            $synced++;
+        $this->cleanupExpiredBlockedIps();
+
+        $tenantBlockedIps = DB::connection($connectionName)
+            ->table('gupa_blocked_ips')
+            ->get();
+
+        $syncedFromTenant = 0;
+        $tenantIps = [];
+
+        foreach ($tenantBlockedIps as $record) {
+            $tenantIps[$record->ip] = true;
+
+            $masterRecord = PanelBlockedIp::where('ip', $record->ip)->first();
+
+            if (! $masterRecord) {
+                PanelBlockedIp::create([
+                    'ip' => $record->ip,
+                    'reason' => $record->reason ?? 'synced from tenant',
+                    'is_permanent' => $record->is_permanent ?? false,
+                    'expires_at' => $record->expires_at,
+                    'created_at' => $record->created_at,
+                    'updated_at' => $record->updated_at ?? $record->created_at,
+                ]);
+                $syncedFromTenant++;
+            } else {
+                $masterRecord->update([
+                    'reason' => $record->reason ?? $masterRecord->reason,
+                    'is_permanent' => $record->is_permanent ?? $masterRecord->is_permanent,
+                    'expires_at' => $record->expires_at,
+                    'updated_at' => $record->updated_at ?? $masterRecord->updated_at,
+                ]);
+            }
+        }
+
+        $masterBlockedIps = PanelBlockedIp::all();
+        $syncedToTenant = 0;
+
+        foreach ($masterBlockedIps as $masterRecord) {
+            if (! isset($tenantIps[$masterRecord->ip])) {
+                DB::connection($connectionName)
+                    ->table('gupa_blocked_ips')
+                    ->insert([
+                        'id' => $masterRecord->id,
+                        'ip' => $masterRecord->ip,
+                        'reason' => $masterRecord->reason,
+                        'is_permanent' => $masterRecord->is_permanent,
+                        'expires_at' => $masterRecord->expires_at,
+                        'created_at' => $masterRecord->created_at,
+                        'updated_at' => $masterRecord->updated_at,
+                    ]);
+                $syncedToTenant++;
+            }
         }
 
         activity('gupa-panel-sync')
@@ -100,9 +138,10 @@ class GupaSyncService
                 'logged_by' => 'system',
                 'tenant_id' => $tenantId,
                 'type' => 'blocked_ips',
-                'count' => $synced,
+                'synced_from_tenant' => $syncedFromTenant,
+                'synced_to_tenant' => $syncedToTenant,
             ])
-            ->log("Synced {$synced} blocked IPs to tenant {$tenantId}");
+            ->log("Blocked IPs sync for tenant {$tenantId}: {$syncedFromTenant} from tenant, {$syncedToTenant} to tenant");
     }
 
     public function syncBlacklistsToTenant(string $tenantId): void
@@ -116,20 +155,47 @@ class GupaSyncService
         $connectionName = $this->connectionName($tenant->id);
         $this->registerTenantConnection($tenant, $connectionName);
 
-        $masterData = PanelBlacklist::all();
-        $synced = 0;
+        if (! $this->tenantHasTable($connectionName, 'gupa_blacklists')) {
+            return;
+        }
 
-        foreach ($masterData as $record) {
-            DB::connection($connectionName)
-                ->table('gupa_blacklists')
-                ->updateOrInsert(
-                    ['id' => $record->id],
-                    [
-                        'ip' => $record->ip,
-                        'created_at' => $record->created_at,
-                    ]
-                );
-            $synced++;
+        $tenantBlacklists = DB::connection($connectionName)
+            ->table('gupa_blacklists')
+            ->get();
+
+        $syncedFromTenant = 0;
+        $tenantIps = [];
+
+        foreach ($tenantBlacklists as $record) {
+            $tenantIps[$record->ip] = true;
+
+            $masterRecord = PanelBlacklist::where('ip', $record->ip)->first();
+
+            if (! $masterRecord) {
+                PanelBlacklist::create([
+                    'ip' => $record->ip,
+                    'reason' => $record->reason ?? 'synced from tenant',
+                    'created_at' => $record->created_at,
+                ]);
+                $syncedFromTenant++;
+            }
+        }
+
+        $masterBlacklists = PanelBlacklist::all();
+        $syncedToTenant = 0;
+
+        foreach ($masterBlacklists as $masterRecord) {
+            if (! isset($tenantIps[$masterRecord->ip])) {
+                DB::connection($connectionName)
+                    ->table('gupa_blacklists')
+                    ->insert([
+                        'id' => $masterRecord->id,
+                        'ip' => $masterRecord->ip,
+                        'reason' => $masterRecord->reason,
+                        'created_at' => $masterRecord->created_at,
+                    ]);
+                $syncedToTenant++;
+            }
         }
 
         activity('gupa-panel-sync')
@@ -138,9 +204,10 @@ class GupaSyncService
                 'logged_by' => 'system',
                 'tenant_id' => $tenantId,
                 'type' => 'blacklists',
-                'count' => $synced,
+                'synced_from_tenant' => $syncedFromTenant,
+                'synced_to_tenant' => $syncedToTenant,
             ])
-            ->log("Synced {$synced} blacklists to tenant {$tenantId}");
+            ->log("Blacklists sync for tenant {$tenantId}: {$syncedFromTenant} from tenant, {$syncedToTenant} to tenant");
     }
 
     public function syncWhitelistsToTenant(string $tenantId): void
@@ -154,20 +221,47 @@ class GupaSyncService
         $connectionName = $this->connectionName($tenant->id);
         $this->registerTenantConnection($tenant, $connectionName);
 
-        $masterData = PanelWhitelist::all();
-        $synced = 0;
+        if (! $this->tenantHasTable($connectionName, 'gupa_whitelists')) {
+            return;
+        }
 
-        foreach ($masterData as $record) {
-            DB::connection($connectionName)
-                ->table('gupa_whitelists')
-                ->updateOrInsert(
-                    ['id' => $record->id],
-                    [
-                        'ip' => $record->ip,
-                        'created_at' => $record->created_at,
-                    ]
-                );
-            $synced++;
+        $tenantWhitelists = DB::connection($connectionName)
+            ->table('gupa_whitelists')
+            ->get();
+
+        $syncedFromTenant = 0;
+        $tenantIps = [];
+
+        foreach ($tenantWhitelists as $record) {
+            $tenantIps[$record->ip] = true;
+
+            $masterRecord = PanelWhitelist::where('ip', $record->ip)->first();
+
+            if (! $masterRecord) {
+                PanelWhitelist::create([
+                    'ip' => $record->ip,
+                    'reason' => $record->reason ?? 'synced from tenant',
+                    'created_at' => $record->created_at,
+                ]);
+                $syncedFromTenant++;
+            }
+        }
+
+        $masterWhitelists = PanelWhitelist::all();
+        $syncedToTenant = 0;
+
+        foreach ($masterWhitelists as $masterRecord) {
+            if (! isset($tenantIps[$masterRecord->ip])) {
+                DB::connection($connectionName)
+                    ->table('gupa_whitelists')
+                    ->insert([
+                        'id' => $masterRecord->id,
+                        'ip' => $masterRecord->ip,
+                        'reason' => $masterRecord->reason,
+                        'created_at' => $masterRecord->created_at,
+                    ]);
+                $syncedToTenant++;
+            }
         }
 
         activity('gupa-panel-sync')
@@ -176,9 +270,10 @@ class GupaSyncService
                 'logged_by' => 'system',
                 'tenant_id' => $tenantId,
                 'type' => 'whitelists',
-                'count' => $synced,
+                'synced_from_tenant' => $syncedFromTenant,
+                'synced_to_tenant' => $syncedToTenant,
             ])
-            ->log("Synced {$synced} whitelists to tenant {$tenantId}");
+            ->log("Whitelists sync for tenant {$tenantId}: {$syncedFromTenant} from tenant, {$syncedToTenant} to tenant");
     }
 
     public function syncLogsFromTenant(string $tenantId): void
@@ -234,6 +329,27 @@ class GupaSyncService
                 ])
                 ->log("Synced {$synced} request logs from tenant {$tenantId}");
         }
+    }
+
+    public function cleanupExpiredBlockedIps(): int
+    {
+        $deleted = PanelBlockedIp::where('is_permanent', false)
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<', now())
+            ->delete();
+
+        if ($deleted > 0) {
+            activity('gupa-panel-sync')
+                ->causedByAnonymous()
+                ->withProperties([
+                    'logged_by' => 'system',
+                    'type' => 'cleanup_expired_blocked_ips',
+                    'count' => $deleted,
+                ])
+                ->log("Cleaned up {$deleted} expired blocked IPs");
+        }
+
+        return $deleted;
     }
 
     protected function connectionName(string $baleId): string
