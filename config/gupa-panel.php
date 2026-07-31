@@ -29,6 +29,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Expired Blocked IP Retention (in days)
+    |--------------------------------------------------------------------------
+    | How long an expired blocked IP is retained before gupa panel deletes it.
+    | Set to 0 to delete immediately once it passes the expires_at date.
+    */
+    'blocked_ip_retention_days' => env('GUPA_PANEL_BLOCKED_IP_RETENTION_DAYS', 0),
+
+    /*
+    |--------------------------------------------------------------------------
     | Log Sync Batch Size
     |--------------------------------------------------------------------------
     | How many unsynced logs are pulled from a tenant per run.

@@ -9,6 +9,7 @@ use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Models\PanelWhitelist;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -248,7 +249,7 @@ class GupaSyncService
             return false;
         }
 
-        return strtotime($record->expires_at) < now()->timestamp;
+        return strtotime($record->expires_at) < $this->retentionThreshold()->timestamp;
     }
 
     protected function tenantHasGupaTables(string $connectionName): bool
@@ -262,10 +263,17 @@ class GupaSyncService
     {
         $deleted = PanelBlockedIp::where('is_permanent', false)
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<', now())
+            ->where('expires_at', '<', $this->retentionThreshold())
             ->delete();
 
         return $deleted;
+    }
+
+    protected function retentionThreshold(): Carbon
+    {
+        $days = max(0, (int) config('gupa-panel.blocked_ip_retention_days', 0));
+
+        return now()->subDays($days);
     }
 
     protected function connectionName(string $baleId): string
