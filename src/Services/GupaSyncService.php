@@ -3,12 +3,12 @@
 namespace Bale\GupaPanel\Services;
 
 use Bale\Cms\Models\BaleList;
+use Bale\GupaPanel\Jobs\SyncLogsFromTenant;
+use Bale\GupaPanel\Jobs\SyncMasterDataToTenant;
 use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelBlockedIp;
-use Bale\GupaPanel\Models\PanelWhitelist;
 use Bale\GupaPanel\Models\PanelRequestLog;
-use Bale\GupaPanel\Jobs\SyncMasterDataToTenant;
-use Bale\GupaPanel\Jobs\SyncLogsFromTenant;
+use Bale\GupaPanel\Models\PanelWhitelist;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -52,30 +52,9 @@ class GupaSyncService
         $connectionName = $this->connectionName($tenant->id);
         $this->registerTenantConnection($tenant, $connectionName);
 
-        $this->cleanupExpiredBlockedIps();
-
         if ($this->tenantHasTable($connectionName, 'gupa_blocked_ips')
             && config('gupa-panel.sync_blocked_ips', true)) {
-            $this->syncTableBidirectional($connectionName, 'gupa_blocked_ips', PanelBlockedIp::class,
-                fn ($record) => [
-                    'ip' => $record->ip,
-                    'reason' => $record->reason ?? 'synced from tenant',
-                    'is_permanent' => $record->is_permanent ?? false,
-                    'expires_at' => $record->expires_at,
-                    'created_at' => $record->created_at,
-                    'updated_at' => $record->updated_at ?? $record->created_at,
-                ],
-                fn ($masterRecord) => [
-                    'id' => $masterRecord->id,
-                    'ip' => $masterRecord->ip,
-                    'reason' => $masterRecord->reason,
-                    'is_permanent' => $masterRecord->is_permanent,
-                    'expires_at' => $masterRecord->expires_at,
-                    'created_at' => $masterRecord->created_at,
-                    'updated_at' => $masterRecord->updated_at,
-                ],
-                'ip'
-            );
+            $this->syncBlockedIpsBidirectional($connectionName);
         }
 
         if ($this->tenantHasTable($connectionName, 'gupa_blacklists')
@@ -134,10 +113,19 @@ class GupaSyncService
             return;
         }
 
-        $tenantLogs = DB::connection($connectionName)
+        $syncedIds = PanelRequestLog::where('tenant_id', $tenantId)
+            ->pluck('tenant_log_id');
+
+        $query = DB::connection($connectionName)
             ->table('gupa_logs')
-            ->orderBy('created_at', 'desc')
-            ->limit(100)
+            ->orderBy('created_at', 'asc');
+
+        if ($syncedIds->isNotEmpty()) {
+            $query->whereNotIn('id', $syncedIds);
+        }
+
+        $tenantLogs = $query
+            ->limit((int) config('gupa-panel.log_sync_batch', 1000))
             ->get();
 
         $synced = 0;
@@ -197,6 +185,70 @@ class GupaSyncService
                     ->insert($mapMasterToTenant($masterRecord));
             }
         }
+    }
+
+    protected function syncBlockedIpsBidirectional(string $connectionName): void
+    {
+        $this->cleanupExpiredBlockedIps();
+
+        $tenantRecords = DB::connection($connectionName)
+            ->table('gupa_blocked_ips')
+            ->get();
+
+        $tenantKeys = [];
+
+        foreach ($tenantRecords as $record) {
+            if ($this->isExpiredBlockedIp($record)) {
+                DB::connection($connectionName)
+                    ->table('gupa_blocked_ips')
+                    ->where('ip', $record->ip)
+                    ->delete();
+
+                continue;
+            }
+
+            $tenantKeys[$record->ip] = true;
+
+            $masterRecord = PanelBlockedIp::where('ip', $record->ip)->first();
+
+            if (! $masterRecord) {
+                PanelBlockedIp::create([
+                    'ip' => $record->ip,
+                    'reason' => $record->reason ?? 'synced from tenant',
+                    'is_permanent' => $record->is_permanent ?? false,
+                    'expires_at' => $record->expires_at,
+                    'created_at' => $record->created_at,
+                    'updated_at' => $record->updated_at ?? $record->created_at,
+                ]);
+            }
+        }
+
+        $masterRecords = PanelBlockedIp::all();
+
+        foreach ($masterRecords as $masterRecord) {
+            if (! isset($tenantKeys[$masterRecord->ip])) {
+                DB::connection($connectionName)
+                    ->table('gupa_blocked_ips')
+                    ->insert([
+                        'id' => $masterRecord->id,
+                        'ip' => $masterRecord->ip,
+                        'reason' => $masterRecord->reason,
+                        'is_permanent' => $masterRecord->is_permanent,
+                        'expires_at' => $masterRecord->expires_at,
+                        'created_at' => $masterRecord->created_at,
+                        'updated_at' => $masterRecord->updated_at,
+                    ]);
+            }
+        }
+    }
+
+    protected function isExpiredBlockedIp(object $record): bool
+    {
+        if (($record->is_permanent ?? false) || empty($record->expires_at)) {
+            return false;
+        }
+
+        return strtotime($record->expires_at) < now()->timestamp;
     }
 
     protected function tenantHasGupaTables(string $connectionName): bool
