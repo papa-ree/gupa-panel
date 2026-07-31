@@ -3,10 +3,8 @@
 namespace Bale\GupaPanel\Livewire\Pages\Sync;
 
 use Bale\GupaPanel\Jobs\SyncAllToTenants;
-use Bale\GupaPanel\Jobs\SyncBlacklistToTenant;
-use Bale\GupaPanel\Jobs\SyncBlockedIpToTenant;
+use Bale\GupaPanel\Jobs\SyncMasterDataToTenant;
 use Bale\GupaPanel\Jobs\SyncLogsFromTenant;
-use Bale\GupaPanel\Jobs\SyncWhitelistToTenant;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelRequestLog;
@@ -51,44 +49,32 @@ class Index extends Component
         $this->dispatch('toast', message: 'Sync jobs dispatched for all tenants.', type: 'success');
     }
 
-    public function syncBlacklists(): void
+    public function syncPanelData(): void
     {
         $tenants = BaleList::all();
-        foreach ($tenants as $tenant) {
-            SyncBlacklistToTenant::dispatch($tenant->id);
-        }
-        $this->logSyncAction('sync_blacklists', 'User initiated blacklist sync to all tenants');
-        $this->dispatch('toast', message: 'Blacklist sync dispatched.', type: 'success');
-    }
+        $dispatched = 0;
 
-    public function syncWhitelists(): void
-    {
-        $tenants = BaleList::all();
         foreach ($tenants as $tenant) {
-            SyncWhitelistToTenant::dispatch($tenant->id);
+            SyncMasterDataToTenant::dispatch($tenant->id);
+            $dispatched++;
         }
-        $this->logSyncAction('sync_whitelists', 'User initiated whitelist sync to all tenants');
-        $this->dispatch('toast', message: 'Whitelist sync dispatched.', type: 'success');
-    }
 
-    public function syncBlockedIps(): void
-    {
-        $tenants = BaleList::all();
-        foreach ($tenants as $tenant) {
-            SyncBlockedIpToTenant::dispatch($tenant->id);
-        }
-        $this->logSyncAction('sync_blocked_ips', 'User initiated blocked IPs sync to all tenants');
-        $this->dispatch('toast', message: 'Blocked IPs sync dispatched.', type: 'success');
+        $this->logSyncAction('sync_panel_data', 'User initiated panel data sync (blacklist, whitelist, blocked IPs)');
+        $this->dispatch('toast', message: "Panel data sync dispatched for {$dispatched} tenant(s).", type: 'success');
     }
 
     public function syncLogs(): void
     {
         $tenants = BaleList::all();
+        $dispatched = 0;
+
         foreach ($tenants as $tenant) {
             SyncLogsFromTenant::dispatch($tenant->id);
+            $dispatched++;
         }
+
         $this->logSyncAction('sync_logs', 'User initiated log sync from all tenants');
-        $this->dispatch('toast', message: 'Log sync dispatched.', type: 'success');
+        $this->dispatch('toast', message: "Log sync dispatched for {$dispatched} tenant(s).", type: 'success');
     }
 
     protected function logSyncAction(string $type, string $description): void

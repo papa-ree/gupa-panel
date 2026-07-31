@@ -3,6 +3,7 @@
 use Bale\GupaPanel\Livewire\Pages\Blacklist;
 use Bale\GupaPanel\Livewire\Pages\BlockedIp;
 use Bale\GupaPanel\Livewire\Pages\FalsePositiveReview;
+use Bale\GupaPanel\Livewire\Pages\KnownCrawler;
 use Bale\GupaPanel\Livewire\Pages\Overview;
 use Bale\GupaPanel\Livewire\Pages\Sync;
 use Bale\GupaPanel\Livewire\Pages\Whitelist;
@@ -34,5 +35,11 @@ Route::middleware(['web', 'auth'])->prefix(config('gupa-panel.route_prefix', 'gu
 
     Route::middleware(['permission:gupa-panel.sync.manual'])->group(function () {
         Route::get('/sync', Sync\Index::class)->name('sync');
+    });
+
+    Route::middleware(['permission:gupa-panel.known-crawler.read'])->group(function () {
+        Route::get('/known-crawlers', KnownCrawler\Index::class)->name('known-crawler');
+        Route::get('/known-crawlers/create', KnownCrawler\Form::class)->name('known-crawler.create');
+        Route::get('/known-crawlers/{id}/edit', KnownCrawler\Form::class)->name('known-crawler.edit');
     });
 });

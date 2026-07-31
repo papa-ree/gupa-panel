@@ -112,6 +112,10 @@ class InstallGupaPanelCommand extends Command
             'gupa-panel.false-positive.review',
             'gupa-panel.false-positive.whitelist',
             'gupa-panel.sync.manual',
+            'gupa-panel.known-crawler.read',
+            'gupa-panel.known-crawler.create',
+            'gupa-panel.known-crawler.update',
+            'gupa-panel.known-crawler.delete',
         ];
 
         foreach ($permissions as $permission) {

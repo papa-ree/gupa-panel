@@ -57,4 +57,13 @@ return [
         'permission' => GupaPanelPermissions::VIEW_SYNC,
         'table' => null,
     ],
+    [
+        'id' => 'known-crawler',
+        'group' => 'gupa-panel',
+        'label' => 'Known Crawlers',
+        'url' => 'gupa-panel/known-crawler',
+        'icon' => 'search',
+        'permission' => GupaPanelPermissions::VIEW_KNOWN_CRAWLER,
+        'table' => null,
+    ],
 ];

@@ -9,7 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class SyncBlacklistToTenant implements ShouldQueue
+class SyncMasterDataToTenant implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -22,6 +22,6 @@ class SyncBlacklistToTenant implements ShouldQueue
 
     public function handle(GupaSyncService $syncService): void
     {
-        $syncService->syncBlacklistsToTenant($this->tenantId);
+        $syncService->syncMasterDataToTenant($this->tenantId);
     }
 }

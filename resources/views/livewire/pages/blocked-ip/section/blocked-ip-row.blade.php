@@ -1,18 +1,54 @@
-<div>
-    <div class="font-mono text-sm">{{ $record->ip }}</div>
-</div>
-<div>{{ $record->reason ?? '-' }}</div>
-<div>
-    @if($record->is_permanent)
-        <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">{{ __('Permanent') }}</span>
-    @else
-        <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">{{ __('Temporary') }}</span>
-    @endif
-</div>
-<div class="text-sm text-gray-500">{{ $record->expires_at ?? '-' }}</div>
-<div class="text-sm text-gray-500">{{ $record->created_at }}</div>
-<div class="text-right">
-    <livewire:core-shared-components::item-actions
-        :itemId="$record->id"
-    />
-</div>
+<tr wire:key="blocked-ip-row-{{ $record->getKey() }}"
+    class="hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors duration-150">
+
+    {{-- IP Address --}}
+    <td class="px-4 py-3.5 w-full max-w-0 sm:max-w-none sm:w-auto">
+        <div class="font-mono text-sm text-gray-900 dark:text-gray-100">
+            {{ $record->ip }}
+        </div>
+    </td>
+
+    {{-- Reason --}}
+    <td class="px-4 py-3.5 hidden lg:table-cell">
+        <div class="text-sm text-gray-700 dark:text-gray-300 truncate max-w-xs">
+            {{ $record->reason ?? '—' }}
+        </div>
+    </td>
+
+    {{-- Status --}}
+    <td class="px-4 py-3.5 hidden sm:table-cell">
+        @if($record->is_permanent)
+            <span
+                class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border border-red-100 dark:border-red-800/40">
+                {{ __('Permanent') }}
+            </span>
+        @else
+            <span
+                class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 border border-yellow-100 dark:border-yellow-800/40">
+                {{ __('Temporary') }}
+            </span>
+        @endif
+    </td>
+
+    {{-- Expires At --}}
+    <td class="px-4 py-3.5 hidden md:table-cell">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+            {{ $record->expires_at ?? '—' }}
+        </div>
+    </td>
+
+    {{-- Created At --}}
+    <td class="px-4 py-3.5 hidden lg:table-cell">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+            {{ $record->created_at }}
+        </div>
+    </td>
+
+    {{-- Actions --}}
+    <td class="px-4 py-3.5 whitespace-nowrap w-px">
+        <livewire:core.shared-components.item-actions :deleteId="$record->id" :navigate="false"
+            confirmMessage="{{ __('Yakin ingin menghapus blocked IP ini?') }}"
+            wire:key="item-actions-{{ $record->id }}" />
+    </td>
+
+</tr>
