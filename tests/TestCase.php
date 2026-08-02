@@ -33,6 +33,8 @@ class TestCase extends Orchestra
         $app['config']->set('gupa-panel.enabled', true);
         $app['config']->set('gupa-panel.sync_interval', 1);
 
+        $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
+
         $app['config']->set('activitylog.enabled', true);
         $app['config']->set('activitylog.default_auth_driver', 'web');
     }
@@ -43,6 +45,7 @@ class TestCase extends Orchestra
 
         $this->createGupaPanelTables();
         $this->createActivityLogTable();
+        $this->createBaleListTable();
     }
 
     protected function createGupaPanelTables(): void
@@ -86,6 +89,7 @@ class TestCase extends Orchestra
         Schema::create('gupa_panel_request_logs', function ($table) {
             $table->uuid('id')->primary();
             $table->string('tenant_id');
+            $table->uuid('tenant_log_id')->nullable();
             $table->string('ip', 45);
             $table->json('metadata')->nullable();
             $table->timestamps();
@@ -107,6 +111,23 @@ class TestCase extends Orchestra
             $table->string('event')->nullable();
             $table->timestamps();
             $table->index('log_name');
+        });
+    }
+
+    protected function createBaleListTable(): void
+    {
+        Schema::create('bale_lists', function ($table) {
+            $table->uuid('id')->primary();
+            $table->uuid('organization_id');
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->string('database_host');
+            $table->string('database_name')->unique();
+            $table->text('database_username');
+            $table->string('database_password');
+            $table->string('storage_prefix')->nullable();
+            $table->boolean('is_active');
+            $table->timestamps();
         });
     }
 }

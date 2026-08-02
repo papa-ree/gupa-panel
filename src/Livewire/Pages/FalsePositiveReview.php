@@ -5,8 +5,12 @@ namespace Bale\GupaPanel\Livewire\Pages;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelWhitelist;
 use Bale\GupaPanel\Services\FalsePositiveDetector;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
+#[Layout('core::layouts.app')]
+#[Title('False Positive Review')]
 class FalsePositiveReview extends Component
 {
     public array $candidates = [];
@@ -36,7 +40,7 @@ class FalsePositiveReview extends Component
         foreach ($this->selected as $id) {
             $blocked = PanelBlockedIp::find($id);
 
-            if (! $blocked) {
+            if (!$blocked) {
                 continue;
             }
 

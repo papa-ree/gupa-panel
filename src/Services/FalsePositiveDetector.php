@@ -2,9 +2,9 @@
 
 namespace Bale\GupaPanel\Services;
 
-use Bale\GupaPanel\Models\PanelRequestLog;
-use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\KnownCrawler;
+use Bale\GupaPanel\Models\PanelBlockedIp;
+use Bale\GupaPanel\Models\PanelRequestLog;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 
@@ -82,6 +82,10 @@ class FalsePositiveDetector
         $request = new Request;
         $request->headers->set('User-Agent', $userAgent);
         $request->server->set('REMOTE_ADDR', $blockedIp->ip);
+
+        if (! empty($metadata['method'])) {
+            $request->setMethod($metadata['method']);
+        }
 
         foreach ($metadata as $key => $value) {
             if (str_starts_with((string) $key, 'header_')) {

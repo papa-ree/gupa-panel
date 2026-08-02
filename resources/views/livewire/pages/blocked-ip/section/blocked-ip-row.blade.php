@@ -46,9 +46,16 @@
 
     {{-- Actions --}}
     <td class="px-4 py-3.5 whitespace-nowrap w-px">
-        <livewire:core.shared-components.item-actions :deleteId="$record->id" :navigate="false"
-            confirmMessage="{{ __('Yakin ingin menghapus blocked IP ini?') }}"
-            wire:key="item-actions-{{ $record->id }}" />
+        <div class="flex items-center gap-1">
+            <a href="{{ route('gupa-panel.blocked-ips.logs', $record->ip) }}" wire:navigate.hover
+                class="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 rounded transition-all"
+                title="{{ __('View Request Logs') }}">
+                <x-lucide-history class="w-4 h-4" />
+            </a>
+            <livewire:core.shared-components.item-actions :deleteId="$record->id" :navigate="false"
+                confirmMessage="{{ __('Yakin ingin menghapus blocked IP ini?') }}"
+                wire:key="item-actions-{{ $record->id }}" />
+        </div>
     </td>
 
 </tr>

@@ -1,6 +1,8 @@
 <?php
 
 use Bale\GupaPanel\Models\KnownCrawler;
+use Bale\GupaPanel\Models\PanelBlockedIp;
+use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Services\FalsePositiveDetector;
 use Illuminate\Http\Request;
 
@@ -96,4 +98,62 @@ it('does not flag normal browser request', function () {
     expect($result['is_false_positive'])->toBeFalse();
     expect($result['confidence_score'])->toBe(0);
     expect($result['matched_crawler'])->toBeNull();
+});
+
+it('analyzes a blocked ip from synced request log metadata', function () {
+    $blockedIp = PanelBlockedIp::create([
+        'ip' => '66.249.66.1',
+        'reason' => 'suspected bot',
+        'is_permanent' => false,
+        'expires_at' => now()->addDay(),
+    ]);
+
+    PanelRequestLog::create([
+        'tenant_id' => '019d2d68-4b7e-73de-8c4a-26833836221e',
+        'tenant_log_id' => 'log-001',
+        'ip' => '66.249.66.1',
+        'metadata' => [
+            'score' => 85,
+            'path' => '/login',
+            'method' => 'GET',
+            'user_agent' => 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+            'status_code' => 403,
+            'header_accept' => 'text/html',
+        ],
+    ]);
+
+    $detector = app(FalsePositiveDetector::class);
+    $result = $detector->analyzeBlockedIp($blockedIp);
+
+    expect($result['is_false_positive'])->toBeTrue();
+    expect($result['matched_crawler'])->toBe('Googlebot');
+    expect($result['confidence_score'])->toBe(100);
+});
+
+it('uses metadata method when scoring blocked ip logs', function () {
+    $blockedIp = PanelBlockedIp::create([
+        'ip' => '10.0.0.9',
+        'reason' => 'suspected bot',
+        'is_permanent' => false,
+        'expires_at' => now()->addDay(),
+    ]);
+
+    PanelRequestLog::create([
+        'tenant_id' => '019d2d68-4b7e-73de-8c4a-26833836221e',
+        'tenant_log_id' => 'log-002',
+        'ip' => '10.0.0.9',
+        'metadata' => [
+            'method' => 'POST',
+            'user_agent' => 'Mozilla/5.0',
+            'status_code' => 403,
+        ],
+    ]);
+
+    $detector = app(FalsePositiveDetector::class);
+    $result = $detector->analyzeBlockedIp($blockedIp);
+
+    expect($result['confidence_score'])->toBe(10);
+    expect($result['reasons'])->toContain('Missing Accept header');
+    expect($result['reasons'])->not->toContain('Missing Accept-Language header');
+    expect($result['is_false_positive'])->toBeFalse();
 });

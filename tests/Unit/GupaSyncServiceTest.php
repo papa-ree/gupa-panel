@@ -1,7 +1,12 @@
 <?php
 
 use Bale\GupaPanel\Models\PanelBlockedIp;
+use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Services\GupaSyncService;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 it('deletes expired blocked ips immediately when retention is zero', function () {
     config()->set('gupa-panel.blocked_ip_retention_days', 0);
@@ -42,4 +47,207 @@ it('deletes expired blocked ips exactly at the retention boundary', function () 
     expect($deleted)->toBe(1);
     expect(PanelBlockedIp::where('ip', '10.0.0.1')->exists())->toBeFalse();
     expect(PanelBlockedIp::where('ip', '10.0.0.2')->exists())->toBeTrue();
+});
+
+it('builds request log metadata from tenant columns', function () {
+    $log = (object) [
+        'metadata' => json_encode(['header_accept' => 'text/html']),
+        'score' => 85,
+        'path' => '/login',
+        'method' => 'POST',
+        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0)',
+        'status_code' => 403,
+    ];
+
+    $metadata = (new GupaSyncService)->buildRequestLogMetadata($log);
+
+    expect($metadata['score'])->toBe(85);
+    expect($metadata['path'])->toBe('/login');
+    expect($metadata['method'])->toBe('POST');
+    expect($metadata['user_agent'])->toBe('Mozilla/5.0 (Windows NT 10.0)');
+    expect($metadata['status_code'])->toBe(403);
+    expect($metadata['header_accept'])->toBe('text/html');
+});
+
+it('keeps existing metadata values when tenant columns are absent', function () {
+    $log = (object) [
+        'metadata' => json_encode([
+            'score' => 60,
+            'path' => '/api/users',
+            'method' => 'GET',
+            'user_agent' => 'curl/8.0',
+            'status_code' => 401,
+        ]),
+    ];
+
+    $metadata = (new GupaSyncService)->buildRequestLogMetadata($log);
+
+    expect($metadata['score'])->toBe(60);
+    expect($metadata['path'])->toBe('/api/users');
+    expect($metadata['method'])->toBe('GET');
+    expect($metadata['user_agent'])->toBe('curl/8.0');
+    expect($metadata['status_code'])->toBe(401);
+});
+
+it('prefers tenant columns over metadata values', function () {
+    $log = (object) [
+        'metadata' => json_encode(['score' => 10, 'path' => '/old']),
+        'score' => 99,
+        'path' => '/new',
+    ];
+
+    $metadata = (new GupaSyncService)->buildRequestLogMetadata($log);
+
+    expect($metadata['score'])->toBe(99);
+    expect($metadata['path'])->toBe('/new');
+});
+
+it('ignores missing columns and null metadata', function () {
+    $log = (object) [
+        'metadata' => null,
+        'method' => 'GET',
+    ];
+
+    $metadata = (new GupaSyncService)->buildRequestLogMetadata($log);
+
+    expect($metadata['method'])->toBe('GET');
+    expect($metadata)->not->toHaveKey('score');
+    expect($metadata)->not->toHaveKey('status_code');
+});
+
+function createTenantLogFixture(string $tenantId): string
+{
+    $conn = 'bale_'.str_replace('-', '_', $tenantId);
+
+    Config::set("database.connections.{$conn}", [
+        'driver' => 'sqlite',
+        'database' => ':memory:',
+        'prefix' => '',
+    ]);
+
+    Schema::connection($conn)->create('gupa_logs', function ($table) {
+        $table->string('id')->primary();
+        $table->string('ip', 45);
+        $table->json('metadata')->nullable();
+        $table->integer('score')->nullable();
+        $table->string('path')->nullable();
+        $table->string('method')->nullable();
+        $table->string('user_agent')->nullable();
+        $table->integer('status_code')->nullable();
+        $table->timestamp('created_at')->nullable();
+        $table->timestamp('updated_at')->nullable();
+    });
+
+    return $conn;
+}
+
+it('backfills metadata for request logs with empty metadata', function () {
+    $tenantId = (string) Str::uuid();
+    $conn = createTenantLogFixture($tenantId);
+    $tenantLogId = (string) Str::uuid();
+
+    DB::connection($conn)->table('gupa_logs')->insert([
+        'id' => $tenantLogId,
+        'ip' => '10.0.0.1',
+        'metadata' => json_encode(['header_accept' => 'text/html']),
+        'score' => 85,
+        'path' => '/login',
+        'method' => 'POST',
+        'user_agent' => 'Mozilla/5.0 (compatible; Googlebot/2.1)',
+        'status_code' => 403,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $log = PanelRequestLog::create([
+        'tenant_id' => $tenantId,
+        'tenant_log_id' => $tenantLogId,
+        'ip' => '10.0.0.1',
+        'metadata' => [],
+    ]);
+
+    $service = new class extends GupaSyncService
+    {
+        public function backfillForTest(string $tenantId, string $connectionName): int
+        {
+            return $this->backfillTenantLogMetadata($tenantId, $connectionName);
+        }
+    };
+
+    $updated = $service->backfillForTest($tenantId, $conn);
+
+    expect($updated)->toBe(1);
+
+    $fresh = $log->fresh();
+
+    expect($fresh->metadata['score'])->toBe(85);
+    expect($fresh->metadata['path'])->toBe('/login');
+    expect($fresh->metadata['method'])->toBe('POST');
+    expect($fresh->metadata['user_agent'])->toBe('Mozilla/5.0 (compatible; Googlebot/2.1)');
+    expect($fresh->metadata['status_code'])->toBe(403);
+    expect($fresh->metadata['header_accept'])->toBe('text/html');
+});
+
+it('does not backfill request logs that already have metadata', function () {
+    $tenantId = (string) Str::uuid();
+    $conn = createTenantLogFixture($tenantId);
+    $tenantLogId = (string) Str::uuid();
+
+    DB::connection($conn)->table('gupa_logs')->insert([
+        'id' => $tenantLogId,
+        'ip' => '10.0.0.2',
+        'metadata' => json_encode([]),
+        'score' => 90,
+        'path' => '/admin',
+        'method' => 'GET',
+        'user_agent' => 'Googlebot',
+        'status_code' => 200,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $log = PanelRequestLog::create([
+        'tenant_id' => $tenantId,
+        'tenant_log_id' => $tenantLogId,
+        'ip' => '10.0.0.2',
+        'metadata' => ['user_agent' => 'existing-agent'],
+    ]);
+
+    $service = new class extends GupaSyncService
+    {
+        public function backfillForTest(string $tenantId, string $connectionName): int
+        {
+            return $this->backfillTenantLogMetadata($tenantId, $connectionName);
+        }
+    };
+
+    $updated = $service->backfillForTest($tenantId, $conn);
+
+    expect($updated)->toBe(0);
+    expect($log->fresh()->metadata['user_agent'])->toBe('existing-agent');
+});
+
+it('skips request logs whose tenant row no longer exists', function () {
+    $tenantId = (string) Str::uuid();
+    $conn = createTenantLogFixture($tenantId);
+
+    $log = PanelRequestLog::create([
+        'tenant_id' => $tenantId,
+        'tenant_log_id' => (string) Str::uuid(),
+        'ip' => '10.0.0.3',
+        'metadata' => [],
+    ]);
+
+    $service = new class extends GupaSyncService
+    {
+        public function backfillForTest(string $tenantId, string $connectionName): int
+        {
+            return $this->backfillTenantLogMetadata($tenantId, $connectionName);
+        }
+    };
+
+    $updated = $service->backfillForTest($tenantId, $conn);
+
+    expect($updated)->toBe(0);
+    expect($log->fresh()->metadata)->toBe([]);
 });

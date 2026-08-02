@@ -27,6 +27,7 @@ Route::middleware(['web', 'auth'])->prefix(config('gupa-panel.route_prefix', 'gu
 
     Route::middleware(['permission:gupa-panel.blocked-ip.read'])->group(function () {
         Route::get('/blocked-ips', BlockedIp\Index::class)->name('blocked-ips');
+        Route::get('/blocked-ips/{ip}/logs', BlockedIp\Logs::class)->name('blocked-ips.logs');
     });
 
     Route::middleware(['permission:gupa-panel.false-positive.review'])->group(function () {

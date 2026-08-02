@@ -3,8 +3,8 @@
 namespace Bale\GupaPanel\Models;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
 
 class PanelBlockedIp extends Model
 {
@@ -25,8 +25,6 @@ class PanelBlockedIp extends Model
         'created_at' => 'datetime:d M Y H:i',
         'updated_at' => 'datetime:d M Y H:i',
     ];
-
-    protected static $recordEvents = ['created', 'deleted'];
 
     public function scopeNotExpired(Builder $query): Builder
     {

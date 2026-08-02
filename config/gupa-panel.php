@@ -46,6 +46,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tenant Connection Driver
+    |--------------------------------------------------------------------------
+    | Database driver used for tenant connections. Overridable for testing/local.
+    */
+    'tenant_driver' => env('GUPA_PANEL_TENANT_DRIVER', 'mysql'),
+
+    /*
+    |--------------------------------------------------------------------------
     | False Positive Detection
     |--------------------------------------------------------------------------
     */

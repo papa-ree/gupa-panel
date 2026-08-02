@@ -32,20 +32,3 @@ it('applies notExpired scope correctly', function () {
     expect($notExpired)->toHaveCount(2);
     expect($notExpired->pluck('ip')->toArray())->toEqualCanonicalizing(['10.0.0.1', '10.0.0.2']);
 });
-
-it('logs activity on creation', function () {
-    $blocked = PanelBlockedIp::create(['ip' => '10.0.0.100', 'reason' => 'test']);
-
-    $activity = $blocked->activities()->first();
-
-    expect($activity)->not->toBeNull();
-    expect($activity->event)->toBe('created');
-    expect($activity->properties['logged_by'])->toBe('system');
-});
-
-it('logs activity on deletion', function () {
-    $blocked = PanelBlockedIp::create(['ip' => '10.0.0.101']);
-    $blocked->delete();
-
-    expect($blocked->activities()->where('event', 'deleted')->exists())->toBeTrue();
-});

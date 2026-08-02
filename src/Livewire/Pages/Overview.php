@@ -8,9 +8,11 @@ use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Models\PanelWhitelist;
 use Bale\GupaPanel\Services\FalsePositiveDetector;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('core::layouts.app')]
+#[Title('Overview')]
 class Overview extends Component
 {
     public array $stats = [];

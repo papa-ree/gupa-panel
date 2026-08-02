@@ -13,9 +13,11 @@ use Bale\GupaPanel\Services\GupaSyncService;
 use Bale\Cms\Models\BaleList;
 use Spatie\Activitylog\Facades\Activity;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('core::layouts.app')]
+#[Title('Sync')]
 class Index extends Component
 {
     public array $syncStats = [];

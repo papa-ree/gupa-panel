@@ -2,13 +2,15 @@
 
 namespace Bale\GupaPanel;
 
+use Bale\GupaPanel\Commands\BackfillLogMetadataCommand;
+use Bale\GupaPanel\Commands\InstallGupaPanelCommand;
+use Bale\GupaPanel\Jobs\SyncAllToTenants;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Livewire\Component as LivewireComponent;
 use Livewire\Livewire;
-use Bale\GupaPanel\Commands\InstallGupaPanelCommand;
-use Bale\GupaPanel\Jobs\SyncAllToTenants;
 use Symfony\Component\Finder\Finder;
 
 class GupaPanelServiceProvider extends ServiceProvider
@@ -38,6 +40,7 @@ class GupaPanelServiceProvider extends ServiceProvider
     {
         $this->commands([
             InstallGupaPanelCommand::class,
+            BackfillLogMetadataCommand::class,
         ]);
     }
 
@@ -130,7 +133,7 @@ class GupaPanelServiceProvider extends ServiceProvider
         $interval = (int) Config::get('gupa-panel.sync_interval', 1);
 
         $this->app->booted(function () use ($interval) {
-            $schedule = $this->app->make(\Illuminate\Console\Scheduling\Schedule::class);
+            $schedule = $this->app->make(Schedule::class);
 
             $schedule->job(new SyncAllToTenants)
                 ->cron("*/{$interval} * * * *")

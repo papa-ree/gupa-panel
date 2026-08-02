@@ -2,8 +2,10 @@
 
 namespace Bale\GupaPanel\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Bale\Cms\Models\BaleList;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class PanelRequestLog extends Model
 {
@@ -27,4 +29,21 @@ class PanelRequestLog extends Model
 
     public $incrementing = false;
     protected $keyType = 'string';
+
+    public function tenant()
+    {
+        return $this->belongsTo(BaleList::class, 'tenant_id');
+    }
+
+    public function metadataSummary(int $length = 140): string
+    {
+        if (empty($this->metadata)) {
+            return '—';
+        }
+
+        return Str::limit(
+            json_encode($this->metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            $length
+        );
+    }
 }

@@ -141,13 +141,97 @@ class GupaSyncService
                     'tenant_id' => $tenantId,
                     'tenant_log_id' => $log->id,
                     'ip' => $log->ip,
-                    'metadata' => is_string($log->metadata) ? json_decode($log->metadata, true) : (array) $log->metadata,
+                    'metadata' => $this->buildRequestLogMetadata($log),
                     'created_at' => $log->created_at,
                     'updated_at' => $log->updated_at ?? $log->created_at,
                 ]);
                 $synced++;
             }
         }
+    }
+
+    public function buildRequestLogMetadata(object $log): array
+    {
+        $metadata = is_string($log->metadata)
+            ? (json_decode($log->metadata, true) ?? [])
+            : ((array) ($log->metadata ?? []));
+
+        foreach (['score', 'path', 'method', 'user_agent', 'status_code'] as $key) {
+            $value = $log->$key ?? $metadata[$key] ?? null;
+
+            if ($value !== null) {
+                $metadata[$key] = $value;
+            }
+        }
+
+        return $metadata;
+    }
+
+    public function backfillLogMetadata(?string $tenantId = null): int
+    {
+        if (! config('gupa-panel.enabled', true)) {
+            return 0;
+        }
+
+        $tenants = $tenantId
+            ? BaleList::where('id', $tenantId)->get()
+            : BaleList::all();
+
+        $updated = 0;
+
+        foreach ($tenants as $tenant) {
+            $connectionName = $this->connectionName($tenant->id);
+
+            $this->registerTenantConnection($tenant, $connectionName);
+
+            if (! $this->tenantHasTable($connectionName, 'gupa_logs')) {
+                continue;
+            }
+
+            $updated += $this->backfillTenantLogMetadata($tenant->id, $connectionName);
+        }
+
+        return $updated;
+    }
+
+    protected function backfillTenantLogMetadata(string $tenantId, string $connectionName): int
+    {
+        $updated = 0;
+
+        PanelRequestLog::where('tenant_id', $tenantId)
+            ->where(function ($query) {
+                $query->whereNull('metadata')
+                    ->orWhere('metadata', '')
+                    ->orWhere('metadata', '[]');
+            })
+            ->select(['id', 'tenant_log_id'])
+            ->chunk(500, function ($logs) use ($connectionName, &$updated) {
+                $ids = $logs->pluck('tenant_log_id')->filter()->unique()->values();
+
+                if ($ids->isEmpty()) {
+                    return;
+                }
+
+                $tenantLogs = DB::connection($connectionName)
+                    ->table('gupa_logs')
+                    ->whereIn('id', $ids)
+                    ->get()
+                    ->keyBy('id');
+
+                foreach ($logs as $log) {
+                    $tenantLog = $tenantLogs->get($log->tenant_log_id);
+
+                    if (! $tenantLog) {
+                        continue;
+                    }
+
+                    $log->update(['metadata' => $this->buildRequestLogMetadata($tenantLog)]);
+
+                    $updated++;
+                }
+            });
+
+        return $updated;
     }
 
     protected function syncTableBidirectional(
@@ -293,7 +377,7 @@ class GupaSyncService
     protected function registerTenantConnection(BaleList $tenant, string $connectionName): void
     {
         Config::set("database.connections.{$connectionName}", [
-            'driver' => 'mysql',
+            'driver' => config('gupa-panel.tenant_driver', 'mysql'),
             'host' => $tenant->database_host,
             'port' => $tenant->database_port ?? 3306,
             'database' => $tenant->database_name,
