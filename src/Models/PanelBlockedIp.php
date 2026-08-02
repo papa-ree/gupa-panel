@@ -2,14 +2,13 @@
 
 namespace Bale\GupaPanel\Models;
 
-use Bale\Core\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class PanelBlockedIp extends Model
 {
-    use HasUuids, LogsActivity;
+    use HasUuids;
 
     protected $table = 'gupa_panel_blocked_ips';
 
@@ -36,13 +35,5 @@ class PanelBlockedIp extends Model
                 ->orWhere('expires_at', '>', now())
                 ->orWhereNull('expires_at');
         });
-    }
-
-    public function getActivitylogOptions(): \Spatie\Activitylog\Support\LogOptions
-    {
-        return \Spatie\Activitylog\Support\LogOptions::defaults()
-            ->logOnly(['ip', 'reason', 'is_permanent'])
-            ->logOnlyDirty()
-            ->dontLogIfAttributesChangedOnly(['updated_at']);
     }
 }
