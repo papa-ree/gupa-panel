@@ -22,6 +22,25 @@ it('defaults to non-permanent', function () {
     expect($blocked->fresh()->is_permanent)->toBeFalse();
 });
 
+it('preserves tenant timestamps instead of stamping sync time', function () {
+    $tenantCreatedAt = now()->subDays(5)->subHours(3);
+    $tenantUpdatedAt = now()->subDays(2);
+
+    $blocked = PanelBlockedIp::create([
+        'ip' => '10.0.0.52',
+        'reason' => 'synced from tenant',
+        'is_permanent' => false,
+        'expires_at' => now()->addWeek(),
+        'created_at' => $tenantCreatedAt,
+        'updated_at' => $tenantUpdatedAt,
+    ]);
+
+    $fresh = $blocked->fresh();
+
+    expect($fresh->created_at->timestamp)->toBe($tenantCreatedAt->timestamp);
+    expect($fresh->updated_at->timestamp)->toBe($tenantUpdatedAt->timestamp);
+});
+
 it('applies notExpired scope correctly', function () {
     PanelBlockedIp::create(['ip' => '10.0.0.1', 'is_permanent' => true]);
     PanelBlockedIp::create(['ip' => '10.0.0.2', 'expires_at' => now()->addDay()]);

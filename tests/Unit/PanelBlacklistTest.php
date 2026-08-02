@@ -1,9 +1,8 @@
 <?php
 
 use Bale\GupaPanel\Models\PanelBlacklist;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
-
-use function Pest\Laravel\assertDatabaseHas;
 
 it('creates a blacklist entry with uuid', function () {
     $blacklist = PanelBlacklist::create([
@@ -17,11 +16,23 @@ it('creates a blacklist entry with uuid', function () {
     expect($blacklist->reason)->toBe('Test block');
 });
 
+it('preserves tenant created_at instead of defaulting to now', function () {
+    $tenantCreatedAt = now()->subDays(7)->subHours(4);
+
+    $blacklist = PanelBlacklist::create([
+        'ip' => '192.168.1.99',
+        'reason' => 'synced from tenant',
+        'created_at' => $tenantCreatedAt,
+    ]);
+
+    expect($blacklist->fresh()->created_at->timestamp)->toBe($tenantCreatedAt->timestamp);
+});
+
 it('enforces unique ip', function () {
     PanelBlacklist::create(['ip' => '10.0.0.1']);
 
     expect(fn () => PanelBlacklist::create(['ip' => '10.0.0.1']))
-        ->toThrow(\Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });
 
 it('logs activity on creation', function () {

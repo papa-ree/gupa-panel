@@ -3,8 +3,9 @@
 namespace Bale\GupaPanel\Models;
 
 use Bale\Core\Traits\LogsActivity;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Support\LogOptions;
 
 class PanelBlacklist extends Model
 {
@@ -14,7 +15,7 @@ class PanelBlacklist extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['ip', 'reason'];
+    protected $fillable = ['ip', 'reason', 'created_at'];
 
     protected $casts = [
         'created_at' => 'datetime:d M Y H:i',
@@ -22,9 +23,9 @@ class PanelBlacklist extends Model
 
     protected static $recordEvents = ['created', 'deleted'];
 
-    public function getActivitylogOptions(): \Spatie\Activitylog\Support\LogOptions
+    public function getActivitylogOptions(): LogOptions
     {
-        return \Spatie\Activitylog\Support\LogOptions::defaults()
+        return LogOptions::defaults()
             ->logOnly(['ip', 'reason'])
             ->logOnlyDirty()
             ->dontLogIfAttributesChangedOnly(['updated_at']);

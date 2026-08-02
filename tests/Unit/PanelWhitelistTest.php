@@ -1,6 +1,7 @@
 <?php
 
 use Bale\GupaPanel\Models\PanelWhitelist;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 
 it('creates a whitelist entry with uuid', function () {
@@ -15,11 +16,23 @@ it('creates a whitelist entry with uuid', function () {
     expect($whitelist->reason)->toBe('Trusted internal');
 });
 
+it('preserves tenant created_at instead of defaulting to now', function () {
+    $tenantCreatedAt = now()->subDays(7)->subHours(4);
+
+    $whitelist = PanelWhitelist::create([
+        'ip' => '192.168.1.199',
+        'reason' => 'synced from tenant',
+        'created_at' => $tenantCreatedAt,
+    ]);
+
+    expect($whitelist->fresh()->created_at->timestamp)->toBe($tenantCreatedAt->timestamp);
+});
+
 it('enforces unique ip on whitelist', function () {
     PanelWhitelist::create(['ip' => '10.0.0.1']);
 
     expect(fn () => PanelWhitelist::create(['ip' => '10.0.0.1']))
-        ->toThrow(\Illuminate\Database\QueryException::class);
+        ->toThrow(QueryException::class);
 });
 
 it('logs activity on creation', function () {

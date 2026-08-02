@@ -17,6 +17,8 @@ class PanelBlockedIp extends Model
         'reason',
         'is_permanent',
         'expires_at',
+        'created_at',
+        'updated_at',
     ];
 
     protected $casts = [

@@ -18,6 +18,8 @@ class PanelRequestLog extends Model
         'tenant_log_id',
         'ip',
         'metadata',
+        'created_at',
+        'updated_at',
     ];
 
     protected $casts = [
@@ -28,6 +30,7 @@ class PanelRequestLog extends Model
     ];
 
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     public function tenant()
