@@ -3,13 +3,14 @@
 namespace Bale\GupaPanel\Livewire\Pages\Blacklist\Section;
 
 use Bale\Core\Traits\HasDeleteOption;
+use Bale\GupaPanel\Models\PanelBlacklist;
 use Livewire\Component;
 
 class BlacklistTable extends Component
 {
     use HasDeleteOption;
 
-    protected string $modelClass = \Bale\GupaPanel\Models\PanelBlacklist::class;
+    protected string $modelClass = PanelBlacklist::class;
 
     public function render()
     {

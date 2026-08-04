@@ -3,13 +3,14 @@
 namespace Bale\GupaPanel\Livewire\Pages\BlockedIp\Section;
 
 use Bale\Core\Traits\HasDeleteOption;
+use Bale\GupaPanel\Models\PanelBlockedIp;
 use Livewire\Component;
 
 class BlockedIpTable extends Component
 {
     use HasDeleteOption;
 
-    protected string $modelClass = \Bale\GupaPanel\Models\PanelBlockedIp::class;
+    protected string $modelClass = PanelBlockedIp::class;
 
     public function render()
     {

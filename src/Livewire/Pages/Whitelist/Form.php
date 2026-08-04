@@ -4,6 +4,7 @@ namespace Bale\GupaPanel\Livewire\Pages\Whitelist;
 
 use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelWhitelist;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -16,10 +17,18 @@ class Form extends Component
 
     public string $reason = '';
 
-    protected $rules = [
-        'ip' => 'required|string|max:255',
-        'reason' => 'nullable|string|max:500',
-    ];
+    public function rules(): array
+    {
+        return [
+            'ip' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('gupa_panel_whitelists', 'ip')->ignore($this->whitelistId),
+            ],
+            'reason' => 'nullable|string|max:500',
+        ];
+    }
 
     public function mount(?string $id = null): void
     {

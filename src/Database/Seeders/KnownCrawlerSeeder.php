@@ -10,7 +10,7 @@ class KnownCrawlerSeeder extends Seeder
 {
     public function run(): void
     {
-        $basePath = __DIR__ . '/../../../resources/ips';
+        $basePath = __DIR__.'/../../../resources/ips';
 
         $jsonCrawlers = [
             [
@@ -46,18 +46,20 @@ class KnownCrawlerSeeder extends Seeder
         ];
 
         foreach ($jsonCrawlers as $crawlerConfig) {
-            $filePath = $basePath . '/' . $crawlerConfig['file'];
+            $filePath = $basePath.'/'.$crawlerConfig['file'];
 
-            if (!File::exists($filePath)) {
+            if (! File::exists($filePath)) {
                 $this->command?->warn("File not found: {$filePath}");
+
                 continue;
             }
 
             $json = File::get($filePath);
             $data = json_decode($json, true);
 
-            if (!isset($data['prefixes'])) {
+            if (! isset($data['prefixes'])) {
                 $this->command?->warn("No prefixes found in: {$crawlerConfig['file']}");
+
                 continue;
             }
 
@@ -84,7 +86,7 @@ class KnownCrawlerSeeder extends Seeder
                 ]
             );
 
-            $this->command?->info("Seeded: {$crawlerConfig['name']} - IPv4: " . count($ipv4Ranges) . ", IPv6: " . count($ipv6Ranges));
+            $this->command?->info("Seeded: {$crawlerConfig['name']} - IPv4: ".count($ipv4Ranges).', IPv6: '.count($ipv6Ranges));
         }
 
         $this->seedOtherCrawlers();

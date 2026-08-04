@@ -2,13 +2,12 @@
 
 namespace Bale\GupaPanel\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class KnownCrawler extends Model
 {
-    use \Illuminate\Database\Eloquent\Concerns\HasUuids;
+    use HasUuids;
 
     protected $table = 'gupa_known_crawlers';
 

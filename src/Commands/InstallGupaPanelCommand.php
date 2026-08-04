@@ -4,7 +4,6 @@ namespace Bale\GupaPanel\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -57,10 +56,10 @@ class InstallGupaPanelCommand extends Command
     {
         $this->info('Publishing and running migrations...');
 
-        $sourcePath = __DIR__ . '/../../database/migrations/';
+        $sourcePath = __DIR__.'/../../database/migrations/';
         $targetPath = database_path('migrations/');
 
-        if (!is_dir($sourcePath)) {
+        if (! is_dir($sourcePath)) {
             $this->warn('No migration stubs found.');
 
             return;
@@ -68,20 +67,20 @@ class InstallGupaPanelCommand extends Command
 
         $published = 0;
 
-        foreach (glob($sourcePath . '*.php.stub') as $stubFile) {
+        foreach (glob($sourcePath.'*.php.stub') as $stubFile) {
             $filename = basename($stubFile);
             $migrationName = str_replace('.php.stub', '.php', $filename);
 
-            $existing = glob($targetPath . '*' . $migrationName);
+            $existing = glob($targetPath.'*'.$migrationName);
 
-            if (!empty($existing)) {
+            if (! empty($existing)) {
                 $this->warn("  Migration {$migrationName} already exists, skipping.");
 
                 continue;
             }
 
             $newFilename = $migrationName;
-            $newFile = $targetPath . $newFilename;
+            $newFile = $targetPath.$newFilename;
 
             File::copy($stubFile, $newFile);
             $this->info("  Published: {$newFilename}");

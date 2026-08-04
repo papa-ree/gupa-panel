@@ -60,7 +60,7 @@ class Form extends Component
     {
         $this->validate();
 
-        $verifiedRanges = array_filter($this->verified_ip_ranges, fn($v) => $v !== '');
+        $verifiedRanges = array_filter($this->verified_ip_ranges, fn ($v) => $v !== '');
 
         if ($this->crawlerId) {
             $crawler = KnownCrawler::findOrFail($this->crawlerId);

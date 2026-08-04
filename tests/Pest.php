@@ -1,3 +1,5 @@
 <?php
 
-uses(Bale\GupaPanel\Tests\TestCase::class)->in('Feature', 'Unit');
+use Bale\GupaPanel\Tests\TestCase;
+
+uses(TestCase::class)->in('Feature', 'Unit');

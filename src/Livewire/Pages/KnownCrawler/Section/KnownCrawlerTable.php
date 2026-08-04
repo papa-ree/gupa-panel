@@ -22,6 +22,7 @@ class KnownCrawlerTable extends Component
 
         if (empty($ranges)) {
             $this->dispatch('toast', message: __('No IP ranges available for :name.', ['name' => $crawler->name]), type: 'warning');
+
             return;
         }
 
