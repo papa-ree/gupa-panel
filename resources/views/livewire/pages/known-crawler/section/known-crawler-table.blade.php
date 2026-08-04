@@ -2,6 +2,7 @@
     <livewire:core-shared-components::data-table
         model="Bale\GupaPanel\Models\KnownCrawler"
         rowView="gupa-panel::livewire.pages.known-crawler.section.known-crawler-row"
+        cardView="gupa-panel::livewire.pages.known-crawler.section.known-crawler-card"
         :columns="[
             ['key' => 'name', 'label' => __('Name'), 'sortable' => true],
             ['key' => 'provider', 'label' => __('Provider'), 'sortable' => true],

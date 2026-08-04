@@ -2,6 +2,7 @@
     <livewire:core-shared-components::data-table
         model="Bale\GupaPanel\Models\PanelWhitelist"
         rowView="gupa-panel::livewire.pages.whitelist.section.whitelist-row"
+        cardView="gupa-panel::livewire.pages.whitelist.section.whitelist-card"
         :columns="[
             ['key' => 'ip', 'label' => __('IP Address'), 'sortable' => true],
             ['key' => 'reason', 'label' => __('Reason'), 'sortable' => true],

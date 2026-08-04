@@ -66,6 +66,7 @@
     <livewire:core-shared-components::data-table
         model="Bale\GupaPanel\Models\PanelRequestLog"
         rowView="gupa-panel::livewire.pages.blocked-ip.section.request-log-row"
+        cardView="gupa-panel::livewire.pages.blocked-ip.section.request-log-card"
         :with="['tenant']"
         :columns="[
             ['key' => 'created_at', 'label' => __('Timestamp'), 'sortable' => true],
