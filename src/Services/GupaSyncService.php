@@ -9,6 +9,7 @@ use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Models\PanelWhitelist;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -132,11 +133,15 @@ class GupaSyncService
         $synced = 0;
 
         foreach ($tenantLogs as $log) {
-            $exists = PanelRequestLog::where('tenant_id', $tenantId)
-                ->where('tenant_log_id', $log->id)
-                ->exists();
+            try {
+                $exists = PanelRequestLog::where('tenant_id', $tenantId)
+                    ->where('tenant_log_id', $log->id)
+                    ->exists();
 
-            if (! $exists) {
+                if ($exists) {
+                    continue;
+                }
+
                 PanelRequestLog::create([
                     'tenant_id' => $tenantId,
                     'tenant_log_id' => $log->id,
@@ -146,8 +151,19 @@ class GupaSyncService
                     'updated_at' => $log->updated_at ?? $log->created_at,
                 ]);
                 $synced++;
+            } catch (QueryException $e) {
+                if ($this->isDuplicateLogEntry($e)) {
+                    continue;
+                }
+
+                throw $e;
             }
         }
+    }
+
+    protected function isDuplicateLogEntry(QueryException $e): bool
+    {
+        return str_contains($e->getMessage(), 'tenant_log_unique');
     }
 
     public function buildRequestLogMetadata(object $log): array

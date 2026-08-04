@@ -1,8 +1,10 @@
 <?php
 
+use Bale\Cms\Models\BaleList;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Services\GupaSyncService;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -250,4 +252,87 @@ it('skips request logs whose tenant row no longer exists', function () {
 
     expect($updated)->toBe(0);
     expect($log->fresh()->metadata)->toBe([]);
+});
+
+it('deduplicates request logs when the same batch is synced more than once', function () {
+    config()->set('gupa-panel.tenant_driver', 'sqlite');
+
+    $tenant = BaleList::create([
+        'organization_id' => (string) Str::uuid(),
+        'name' => 'Tenant Sync Test',
+        'slug' => 'tenant-sync-'.Str::random(6),
+        'database_host' => 'localhost',
+        'database_name' => ':memory:',
+        'database_username' => 'root',
+        'database_password' => 'secret',
+        'is_active' => true,
+    ]);
+
+    $conn = 'bale_'.str_replace('-', '_', $tenant->id);
+
+    Config::set("database.connections.{$conn}", [
+        'driver' => 'sqlite',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database' => ':memory:',
+        'username' => 'root',
+        'password' => 'secret',
+        'charset' => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'prefix' => '',
+        'strict' => true,
+    ]);
+
+    Schema::connection($conn)->create('gupa_logs', function ($table) {
+        $table->string('id')->primary();
+        $table->string('ip', 45);
+        $table->json('metadata')->nullable();
+        $table->timestamp('created_at')->nullable();
+        $table->timestamp('updated_at')->nullable();
+    });
+
+    $logId = (string) Str::uuid();
+
+    DB::connection($conn)->table('gupa_logs')->insert([
+        'id' => $logId,
+        'ip' => '10.0.0.77',
+        'metadata' => json_encode(['user_agent' => 'Googlebot']),
+        'created_at' => now()->subHour(),
+        'updated_at' => now()->subHour(),
+    ]);
+
+    $service = new GupaSyncService;
+
+    $service->syncLogsFromTenant($tenant->id);
+    $service->syncLogsFromTenant($tenant->id);
+
+    expect(PanelRequestLog::where('tenant_id', $tenant->id)->count())->toBe(1);
+    expect(PanelRequestLog::where('tenant_id', $tenant->id)->value('tenant_log_id'))->toBe($logId);
+});
+
+it('identifies duplicate tenant log constraint violations', function () {
+    $service = new class extends GupaSyncService
+    {
+        public function isDuplicateForTest(QueryException $e): bool
+        {
+            return $this->isDuplicateLogEntry($e);
+        }
+    };
+
+    $duplicate = new QueryException(
+        'sqlite',
+        'insert into "gupa_panel_request_logs" ...',
+        [],
+        new Exception("SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'x' for key 'gupa_panel_request_logs.tenant_log_unique'"),
+    );
+
+    $other = new QueryException(
+        'sqlite',
+        'select * from "gupa_logs"',
+        [],
+        new Exception('SQLSTATE[HY000]: General error: 5 database is locked'),
+    );
+
+    expect($service->isDuplicateForTest($duplicate))->toBeTrue();
+    expect($service->isDuplicateForTest($other))->toBeFalse();
 });
