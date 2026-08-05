@@ -8,6 +8,10 @@ use Bale\GupaPanel\GupaPanelPermissions;
  * Grup 'gupa-panel' mencakup fitur keamanan: blacklist, whitelist,
  * blocked IPs, false positive review, sync management, dan known crawlers.
  */
+if (! config('gupa-panel.enabled', true)) {
+    return [];
+}
+
 return [
     'type' => 'landlord',
 

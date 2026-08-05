@@ -4,6 +4,7 @@ use Bale\Cms\Models\BaleList;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelRequestLog;
 use Bale\GupaPanel\Services\GupaSyncService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -335,4 +336,15 @@ it('identifies duplicate tenant log constraint violations', function () {
 
     expect($service->isDuplicateForTest($duplicate))->toBeTrue();
     expect($service->isDuplicateForTest($other))->toBeFalse();
+});
+
+it('registers the gupa-panel sync job on the scheduler when enabled', function () {
+    $events = $this->app->make(Schedule::class)->events();
+
+    $gupaEvents = array_values(array_filter(
+        $events,
+        fn ($event) => $event->description === 'gupa-panel:sync-tenants'
+    ));
+
+    expect($gupaEvents)->toHaveCount(1);
 });

@@ -130,6 +130,10 @@ class GupaPanelServiceProvider extends ServiceProvider
 
     protected function registerSchedules(): void
     {
+        if (! Config::get('gupa-panel.enabled', true)) {
+            return;
+        }
+
         $interval = (int) Config::get('gupa-panel.sync_interval', 1);
 
         $this->app->booted(function () use ($interval) {

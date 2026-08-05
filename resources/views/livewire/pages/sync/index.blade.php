@@ -1,4 +1,16 @@
 <div>
+    @php($gupaEnabled = config('gupa-panel.enabled', true))
+
+    @if(! $gupaEnabled)
+        <div class="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-200/70 bg-amber-50 text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300 mb-6">
+            <x-lucide-alert-triangle class="size-5 shrink-0 mt-0.5" />
+            <div>
+                <p class="text-sm font-semibold">{{ __('Gupa Panel sync is disabled') }}</p>
+                <p class="text-xs mt-0.5">{{ __('Sync scheduler and queue jobs are halted because GUPA_PANEL_ENABLED=false. Data sync will not run until the flag is re-enabled and config is reloaded.') }}</p>
+            </div>
+        </div>
+    @endif
+
     <x-core::page-header
         gradient
         :title="__('Sync Management')"
@@ -46,10 +58,12 @@
                 </div>
                 <x-lucide-database class="w-10 h-10 text-indigo-500" />
             </div>
-            <x-core::button wire:click="syncPanelData" variant="primary" class="w-full" type="button" :label="__('Sync Panel Data to Tenants')" />
+            @if($gupaEnabled)
+                <x-core::button wire:click="syncPanelData" variant="primary" class="w-full" type="button" :label="__('Sync Panel Data to Tenants')" />
+            @else
+                <span class="block w-full text-center py-3.5 text-sm font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 rounded-2xl cursor-not-allowed">{{ __('Sync disabled') }}</span>
+            @endif
         </div>
-
-        {{-- Sync Logs (from tenant to landlord) --}}
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition">
             <div class="flex items-center justify-between mb-4">
                 <div>
@@ -58,7 +72,11 @@
                 </div>
                 <x-lucide-activity class="w-10 h-10 text-purple-500" />
             </div>
-            <x-core::button wire:click="syncLogs" variant="primary" class="w-full" type="button" :label="__('Sync Logs from Tenants')" />
+            @if($gupaEnabled)
+                <x-core::button wire:click="syncLogs" variant="primary" class="w-full" type="button" :label="__('Sync Logs from Tenants')" />
+            @else
+                <span class="block w-full text-center py-3.5 text-sm font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 rounded-2xl cursor-not-allowed">{{ __('Sync disabled') }}</span>
+            @endif
         </div>
 
         {{-- Info & Sync All --}}
@@ -70,7 +88,11 @@
                 </div>
                 <x-lucide-refresh-cw class="w-10 h-10 text-emerald-500" />
             </div>
-            <x-core::button wire:click="syncAll" variant="success" class="w-full" type="button" :label="__('Sync All')" />
+            @if($gupaEnabled)
+                <x-core::button wire:click="syncAll" variant="success" class="w-full" type="button" :label="__('Sync All')" />
+            @else
+                <span class="block w-full text-center py-3.5 text-sm font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 rounded-2xl cursor-not-allowed">{{ __('Sync disabled') }}</span>
+            @endif
         </div>
     </div>
 </div>

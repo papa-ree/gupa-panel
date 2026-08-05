@@ -46,6 +46,12 @@ class Index extends Component
 
     public function syncAll(): void
     {
+        if (! config('gupa-panel.enabled', true)) {
+            $this->dispatch('toast', message: __('Gupa Panel sync is disabled.'), type: 'warning');
+
+            return;
+        }
+
         SyncAllToTenants::dispatch();
         $this->logSyncAction('sync_all', 'User initiated full sync to all tenants');
         $this->dispatch('toast', message: 'Sync jobs dispatched for all tenants.', type: 'success');
@@ -53,6 +59,12 @@ class Index extends Component
 
     public function syncPanelData(): void
     {
+        if (! config('gupa-panel.enabled', true)) {
+            $this->dispatch('toast', message: __('Gupa Panel sync is disabled.'), type: 'warning');
+
+            return;
+        }
+
         $tenants = BaleList::all();
         $dispatched = 0;
 
@@ -67,6 +79,12 @@ class Index extends Component
 
     public function syncLogs(): void
     {
+        if (! config('gupa-panel.enabled', true)) {
+            $this->dispatch('toast', message: __('Gupa Panel sync is disabled.'), type: 'warning');
+
+            return;
+        }
+
         $tenants = BaleList::all();
         $dispatched = 0;
 
