@@ -1,6 +1,8 @@
 <?php
 
 use Bale\Cms\Models\BaleList;
+use Bale\GupaPanel\Jobs\SyncAllToTenants;
+use Bale\GupaPanel\Jobs\SyncMasterDataToTenant;
 use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelRequestLog;
@@ -10,6 +12,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -570,4 +573,26 @@ it('registers the gupa-panel sync job on the scheduler when enabled', function (
     ));
 
     expect($gupaEvents)->toHaveCount(1);
+});
+
+it('mirrors panel whitelists to tenants through the scheduler job chain', function () {
+    config()->set('gupa-panel.sync_whitelists', true);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    PanelWhitelist::create(['ip' => '10.0.0.20', 'reason' => 'via scheduler']);
+
+    $service = new GupaSyncService;
+
+    Queue::fake();
+    (new SyncAllToTenants)->handle($service);
+
+    Queue::assertPushed(SyncMasterDataToTenant::class, fn ($job) => $job->tenantId === $tenant->id);
+
+    (new SyncMasterDataToTenant($tenant->id))->handle(new GupaSyncService);
+
+    expect(DB::connection($conn)->table('gupa_whitelists')->where('ip', '10.0.0.20')->exists())->toBeTrue();
 });
