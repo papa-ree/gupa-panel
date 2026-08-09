@@ -61,12 +61,7 @@ class GupaSyncService
 
         if ($this->tenantHasTable($connectionName, 'gupa_blacklists')
             && config('gupa-panel.sync_blacklists', true)) {
-            $this->syncTableBidirectional($connectionName, 'gupa_blacklists', PanelBlacklist::class,
-                fn ($record) => [
-                    'ip' => $record->ip,
-                    'reason' => $record->reason ?? 'synced from tenant',
-                    'created_at' => $record->created_at,
-                ],
+            $this->syncTableFromMaster($connectionName, 'gupa_blacklists', PanelBlacklist::class,
                 fn ($masterRecord) => [
                     'id' => $masterRecord->id,
                     'ip' => $masterRecord->ip,
@@ -79,12 +74,7 @@ class GupaSyncService
 
         if ($this->tenantHasTable($connectionName, 'gupa_whitelists')
             && config('gupa-panel.sync_whitelists', true)) {
-            $this->syncTableBidirectional($connectionName, 'gupa_whitelists', PanelWhitelist::class,
-                fn ($record) => [
-                    'ip' => $record->ip,
-                    'reason' => $record->reason ?? 'synced from tenant',
-                    'created_at' => $record->created_at,
-                ],
+            $this->syncTableFromMaster($connectionName, 'gupa_whitelists', PanelWhitelist::class,
                 fn ($masterRecord) => [
                     'id' => $masterRecord->id,
                     'ip' => $masterRecord->ip,
@@ -250,41 +240,61 @@ class GupaSyncService
         return $updated;
     }
 
-    protected function syncTableBidirectional(
+    protected function syncTableFromMaster(
         string $connectionName,
         string $tenantTable,
         string $masterModelClass,
-        callable $mapTenantToMaster,
         callable $mapMasterToTenant,
         string $uniqueKey = 'ip',
     ): void {
-        $tenantRecords = DB::connection($connectionName)
-            ->table($tenantTable)
-            ->get();
-
-        $tenantKeys = [];
-
-        foreach ($tenantRecords as $record) {
-            $key = $record->$uniqueKey;
-            $tenantKeys[$key] = true;
-
-            $masterRecord = $masterModelClass::where($uniqueKey, $key)->first();
-
-            if (! $masterRecord) {
-                $masterModelClass::create($mapTenantToMaster($record));
-            }
-        }
-
         $masterRecords = $masterModelClass::all();
+
+        $masterKeys = [];
 
         foreach ($masterRecords as $masterRecord) {
             $key = $masterRecord->$uniqueKey;
+            $masterKeys[$key] = true;
 
-            if (! isset($tenantKeys[$key])) {
+            $tenantRow = DB::connection($connectionName)
+                ->table($tenantTable)
+                ->where($uniqueKey, $key)
+                ->first();
+
+            if (! $tenantRow) {
                 DB::connection($connectionName)
                     ->table($tenantTable)
                     ->insert($mapMasterToTenant($masterRecord));
+
+                continue;
             }
+
+            $changes = [];
+
+            foreach ($mapMasterToTenant($masterRecord) as $column => $value) {
+                if ($column === $uniqueKey || $column === 'id') {
+                    continue;
+                }
+
+                $current = $tenantRow->$column ?? null;
+
+                if ((string) $current !== (string) $value) {
+                    $changes[$column] = $value;
+                }
+            }
+
+            if ($changes !== []) {
+                DB::connection($connectionName)
+                    ->table($tenantTable)
+                    ->where($uniqueKey, $key)
+                    ->update($changes);
+            }
+        }
+
+        if ($masterKeys !== []) {
+            DB::connection($connectionName)
+                ->table($tenantTable)
+                ->whereNotIn($uniqueKey, array_keys($masterKeys))
+                ->delete();
         }
     }
 

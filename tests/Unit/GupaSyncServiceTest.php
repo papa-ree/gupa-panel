@@ -1,8 +1,10 @@
 <?php
 
 use Bale\Cms\Models\BaleList;
+use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelRequestLog;
+use Bale\GupaPanel\Models\PanelWhitelist;
 use Bale\GupaPanel\Services\GupaSyncService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\QueryException;
@@ -336,6 +338,227 @@ it('identifies duplicate tenant log constraint violations', function () {
 
     expect($service->isDuplicateForTest($duplicate))->toBeTrue();
     expect($service->isDuplicateForTest($other))->toBeFalse();
+});
+
+function makeSyncTenant(): BaleList
+{
+    config()->set('gupa-panel.tenant_driver', 'sqlite');
+
+    return BaleList::create([
+        'organization_id' => (string) Str::uuid(),
+        'name' => 'Tenant Sync Fixture',
+        'slug' => 'tenant-sync-'.Str::random(6),
+        'database_host' => 'localhost',
+        'database_name' => ':memory:',
+        'database_username' => 'root',
+        'database_password' => 'secret',
+        'is_active' => true,
+    ]);
+}
+
+function createTenantSyncTables(BaleList $tenant): string
+{
+    $conn = 'bale_'.str_replace('-', '_', $tenant->id);
+
+    Config::set("database.connections.{$conn}", [
+        'driver' => 'sqlite',
+        'database' => ':memory:',
+        'prefix' => '',
+    ]);
+
+    Schema::connection($conn)->create('gupa_whitelists', function ($table) {
+        $table->string('id')->primary();
+        $table->string('ip', 45);
+        $table->string('reason')->nullable();
+        $table->timestamp('created_at')->nullable();
+    });
+
+    Schema::connection($conn)->create('gupa_blacklists', function ($table) {
+        $table->string('id')->primary();
+        $table->string('ip', 45);
+        $table->string('reason')->nullable();
+        $table->timestamp('created_at')->nullable();
+    });
+
+    Schema::connection($conn)->create('gupa_blocked_ips', function ($table) {
+        $table->string('id')->primary();
+        $table->string('ip', 45);
+        $table->string('reason')->nullable();
+        $table->boolean('is_permanent')->default(false);
+        $table->timestamp('expires_at')->nullable();
+        $table->timestamp('created_at')->nullable();
+        $table->timestamp('updated_at')->nullable();
+    });
+
+    return $conn;
+}
+
+it('removes tenant whitelist rows that are no longer in the panel', function () {
+    config()->set('gupa-panel.sync_whitelists', true);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    PanelWhitelist::create(['ip' => '10.0.0.1', 'reason' => 'keep']);
+    PanelWhitelist::create(['ip' => '10.0.0.2', 'reason' => 'remove later']);
+
+    $service = new GupaSyncService;
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(DB::connection($conn)->table('gupa_whitelists')->pluck('ip'))
+        ->toContain('10.0.0.1')
+        ->toContain('10.0.0.2');
+
+    PanelWhitelist::where('ip', '10.0.0.2')->firstOrFail()->delete();
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(DB::connection($conn)->table('gupa_whitelists')->pluck('ip'))
+        ->toContain('10.0.0.1')
+        ->not->toContain('10.0.0.2');
+});
+
+it('pushes new panel whitelist rows into the tenant', function () {
+    config()->set('gupa-panel.sync_whitelists', true);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    $service = new GupaSyncService;
+
+    PanelWhitelist::create(['ip' => '10.0.0.10', 'reason' => 'new entry']);
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(DB::connection($conn)->table('gupa_whitelists')->where('ip', '10.0.0.10')->exists())->toBeTrue();
+});
+
+it('updates tenant whitelist rows when the panel edits a field', function () {
+    config()->set('gupa-panel.sync_whitelists', true);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    $service = new GupaSyncService;
+
+    $entry = PanelWhitelist::create(['ip' => '10.0.0.11', 'reason' => 'old reason']);
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    $entry->update(['reason' => 'new reason']);
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(DB::connection($conn)->table('gupa_whitelists')->where('ip', '10.0.0.11')->value('reason'))->toBe('new reason');
+});
+
+it('removes tenant whitelist rows not present in the panel to mirror the panel exactly', function () {
+    config()->set('gupa-panel.sync_whitelists', true);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    $service = new GupaSyncService;
+
+    PanelWhitelist::create(['ip' => '10.0.0.7', 'reason' => 'panel only']);
+
+    DB::connection($conn)->table('gupa_whitelists')->insert([
+        'id' => (string) Str::uuid(),
+        'ip' => '10.0.0.99',
+        'reason' => 'tenant only',
+        'created_at' => now(),
+    ]);
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(DB::connection($conn)->table('gupa_whitelists')->pluck('ip'))
+        ->toContain('10.0.0.7')
+        ->not->toContain('10.0.0.99');
+});
+
+it('removes tenant blacklist rows that are no longer in the panel', function () {
+    config()->set('gupa-panel.sync_whitelists', false);
+    config()->set('gupa-panel.sync_blacklists', true);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    $service = new GupaSyncService;
+
+    PanelBlacklist::create(['ip' => '10.0.0.3', 'reason' => 'spam']);
+    PanelBlacklist::create(['ip' => '10.0.0.4', 'reason' => 'remove later']);
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(DB::connection($conn)->table('gupa_blacklists')->pluck('ip'))
+        ->toContain('10.0.0.3')
+        ->toContain('10.0.0.4');
+
+    PanelBlacklist::where('ip', '10.0.0.4')->firstOrFail()->delete();
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(DB::connection($conn)->table('gupa_blacklists')->pluck('ip'))
+        ->toContain('10.0.0.3')
+        ->not->toContain('10.0.0.4');
+});
+
+it('does not wipe tenant whitelists when the panel table is empty', function () {
+    config()->set('gupa-panel.sync_whitelists', true);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    $service = new GupaSyncService;
+
+    DB::connection($conn)->table('gupa_whitelists')->insert([
+        'id' => (string) Str::uuid(),
+        'ip' => '10.0.0.98',
+        'reason' => 'pre-existing',
+        'created_at' => now(),
+    ]);
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(DB::connection($conn)->table('gupa_whitelists')->where('ip', '10.0.0.98')->exists())->toBeTrue();
+});
+
+it('keeps tenant blocked ips when absent from the panel', function () {
+    config()->set('gupa-panel.sync_whitelists', false);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', true);
+    config()->set('gupa-panel.blocked_ip_retention_days', 0);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    $service = new GupaSyncService;
+
+    DB::connection($conn)->table('gupa_blocked_ips')->insert([
+        'id' => (string) Str::uuid(),
+        'ip' => '10.0.0.97',
+        'reason' => 'tenant auto block',
+        'is_permanent' => false,
+        'expires_at' => now()->addHour(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $service->syncMasterDataToTenant($tenant->id);
+
+    expect(PanelBlockedIp::where('ip', '10.0.0.97')->exists())->toBeTrue();
+    expect(DB::connection($conn)->table('gupa_blocked_ips')->where('ip', '10.0.0.97')->exists())->toBeTrue();
 });
 
 it('registers the gupa-panel sync job on the scheduler when enabled', function () {
