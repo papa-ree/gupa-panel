@@ -2,6 +2,7 @@
 
 namespace Bale\GupaPanel\Commands;
 
+use Bale\Core\Support\RootPermissions;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Spatie\Permission\Models\Permission;
@@ -126,7 +127,7 @@ class InstallGupaPanelCommand extends Command
         $rootRole = Role::where('name', 'root')->first();
         if ($rootRole) {
             $this->info('Force syncing ALL permissions to root role...');
-            $rootRole->syncPermissions(Permission::where('name', '!=', 'guest.sidebar')->get());
+            $rootRole->syncPermissions(RootPermissions::assignable());
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
