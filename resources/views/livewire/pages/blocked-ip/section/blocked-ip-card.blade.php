@@ -23,9 +23,15 @@
                 title="{{ __('View Request Logs') }}">
                 <x-lucide-history class="w-4 h-4" />
             </a>
-            <livewire:core.shared-components.item-actions :deleteId="$record->id" :navigate="false"
-                confirmMessage="{{ __('Yakin ingin menghapus blocked IP ini?') }}"
-                wire:key="item-actions-card-{{ $record->id }}" />
+            @can('gupa-panel.blocked-ip.unblock')
+                <button type="button"
+                    wire:click="$dispatch('unblockBlockedIp', { id: '{{ $record->id }}' })"
+                    wire:confirm="{{ __('Unblock this IP on every tenant?') }}"
+                    class="p-2 text-gray-600 hover:text-teal-600 hover:bg-teal-50 dark:text-gray-400 dark:hover:text-teal-400 dark:hover:bg-teal-900/20 rounded transition-all"
+                    title="{{ __('Unblock') }}">
+                    <x-lucide-lock-open class="w-4 h-4" />
+                </button>
+            @endcan
         </div>
     </div>
 

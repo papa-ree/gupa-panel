@@ -353,6 +353,93 @@ class GupaSyncService
         }
     }
 
+    /**
+     * Hapus IP dari blocked list di panel dan seluruh tenant.
+     *
+     * Semua-atau-tidak-sama-sekali: preflight koneksi tiap tenant lebih dulu,
+     * dan bila satu tenant tidak bisa dihubungi tidak ada baris yang dihapus.
+     * Baris master hanya dihapus setelah semua tenant bersih, supaya sync
+     * berikutnya tidak menghidupkannya lagi dari tenant yang tertinggal.
+     *
+     * @param  array<int, string>  $ips
+     * @return array{ok: bool, reason?: string, ips: array<int, string>, tenants: array<int, string>, skipped: array<int, string>, deleted_tenant_rows: int, deleted_panel_rows: int}
+     */
+    public function unblockIps(array $ips, bool $whitelist = false): array
+    {
+        $ips = array_values(array_unique(array_filter($ips)));
+
+        $result = [
+            'ok' => false,
+            'ips' => $ips,
+            'tenants' => [],
+            'skipped' => [],
+            'deleted_tenant_rows' => 0,
+            'deleted_panel_rows' => 0,
+        ];
+
+        if ($ips === []) {
+            return $result + ['reason' => 'no ips given'];
+        }
+
+        if (! config('gupa-panel.enabled', true)) {
+            return $result + ['reason' => 'gupa panel disabled'];
+        }
+
+        $ready = [];
+
+        foreach (BaleList::all() as $tenant) {
+            $connectionName = $this->connectionName($tenant->id);
+
+            try {
+                $this->registerTenantConnection($tenant, $connectionName);
+
+                if (! Schema::connection($connectionName)->hasTable('gupa_blocked_ips')) {
+                    $result['skipped'][] = $tenant->id;
+
+                    continue;
+                }
+            } catch (\Throwable $e) {
+                return $result + ['reason' => "tenant {$tenant->id} unreachable: {$e->getMessage()}"];
+            }
+
+            $ready[$tenant->id] = $connectionName;
+        }
+
+        if ($whitelist) {
+            foreach ($ips as $ip) {
+                PanelWhitelist::firstOrCreate(
+                    ['ip' => $ip],
+                    ['reason' => 'False positive — auto-whitelisted from review'],
+                );
+            }
+        }
+
+        $deletedTenantRows = 0;
+
+        foreach ($ready as $tenantId => $connectionName) {
+            try {
+                $deletedTenantRows += DB::connection($connectionName)
+                    ->table('gupa_blocked_ips')
+                    ->whereIn('ip', $ips)
+                    ->delete();
+            } catch (\Throwable $e) {
+                // Sebagian tenant sudah terhapus; master dibiarkan agar bisa diulang.
+                return array_merge($result, [
+                    'reason' => "tenant {$tenantId} failed: {$e->getMessage()}",
+                    'tenants' => array_keys($ready),
+                    'deleted_tenant_rows' => $deletedTenantRows,
+                ]);
+            }
+        }
+
+        $result['ok'] = true;
+        $result['tenants'] = array_keys($ready);
+        $result['deleted_tenant_rows'] = $deletedTenantRows;
+        $result['deleted_panel_rows'] = PanelBlockedIp::whereIn('ip', $ips)->delete();
+
+        return $result;
+    }
+
     protected function isExpiredBlockedIp(object $record): bool
     {
         if (($record->is_permanent ?? false) || empty($record->expires_at)) {

@@ -596,3 +596,126 @@ it('mirrors panel whitelists to tenants through the scheduler job chain', functi
 
     expect(DB::connection($conn)->table('gupa_whitelists')->where('ip', '10.0.0.20')->exists())->toBeTrue();
 });
+
+function seedTenantBlockedIp(string $connectionName, string $ip): void
+{
+    DB::connection($connectionName)->table('gupa_blocked_ips')->insert([
+        'id' => (string) Str::uuid(),
+        'ip' => $ip,
+        'reason' => 'score threshold exceeded',
+        'is_permanent' => true,
+        'expires_at' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+}
+
+it('unblocks an ip on every tenant and the panel', function () {
+    config()->set('gupa-panel.sync_whitelists', false);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+
+    $tenant = makeSyncTenant();
+    $conn = createTenantSyncTables($tenant);
+
+    seedTenantBlockedIp($conn, '10.0.0.50');
+    PanelBlockedIp::create(['ip' => '10.0.0.50', 'reason' => 'synced from tenant']);
+
+    $result = (new GupaSyncService)->unblockIps(['10.0.0.50']);
+
+    expect($result['ok'])->toBeTrue();
+    expect($result['tenants'])->toBe([$tenant->id]);
+    expect(DB::connection($conn)->table('gupa_blocked_ips')->where('ip', '10.0.0.50')->exists())->toBeFalse();
+    expect(PanelBlockedIp::where('ip', '10.0.0.50')->exists())->toBeFalse();
+});
+
+it('aborts the whole unblock when one tenant is unreachable', function () {
+    config()->set('gupa-panel.sync_whitelists', false);
+    config()->set('gupa-panel.sync_blacklists', false);
+    config()->set('gupa-panel.sync_blocked_ips', false);
+    config()->set('gupa-panel.tenant_driver', 'sqlite');
+
+    $healthy = makeSyncTenant();
+    $conn = createTenantSyncTables($healthy);
+    seedTenantBlockedIp($conn, '10.0.0.51');
+
+    BaleList::create([
+        'organization_id' => (string) Str::uuid(),
+        'name' => 'Broken Tenant',
+        'slug' => 'broken-'.Str::random(6),
+        'database_host' => 'localhost',
+        'database_name' => 'Z:/missing-dir/broken.sqlite',
+        'database_username' => 'root',
+        'database_password' => 'secret',
+        'is_active' => true,
+    ]);
+
+    PanelBlockedIp::create(['ip' => '10.0.0.51', 'reason' => 'synced from tenant']);
+
+    $result = (new GupaSyncService)->unblockIps(['10.0.0.51']);
+
+    expect($result['ok'])->toBeFalse();
+    expect($result['reason'])->toContain('unreachable');
+    expect(DB::connection($conn)->table('gupa_blocked_ips')->where('ip', '10.0.0.51')->exists())->toBeTrue();
+    expect(PanelBlockedIp::where('ip', '10.0.0.51')->exists())->toBeTrue();
+});
+
+it('skips tenants without gupa blocked ip tables', function () {
+    config()->set('gupa-panel.tenant_driver', 'sqlite');
+
+    $tenant = makeSyncTenant();
+    $conn = 'bale_'.str_replace('-', '_', $tenant->id);
+
+    Config::set("database.connections.{$conn}", [
+        'driver' => 'sqlite',
+        'database' => ':memory:',
+        'prefix' => '',
+    ]);
+
+    PanelBlockedIp::create(['ip' => '10.0.0.52']);
+
+    $result = (new GupaSyncService)->unblockIps(['10.0.0.52']);
+
+    expect($result['ok'])->toBeTrue();
+    expect($result['skipped'])->toBe([$tenant->id]);
+    expect(PanelBlockedIp::where('ip', '10.0.0.52')->exists())->toBeFalse();
+});
+
+it('writes whitelist entries only when the unblock succeeds', function () {
+    config()->set('gupa-panel.tenant_driver', 'sqlite');
+
+    $tenant = makeSyncTenant();
+    createTenantSyncTables($tenant);
+
+    PanelBlockedIp::create(['ip' => '10.0.0.53']);
+
+    $result = (new GupaSyncService)->unblockIps(['10.0.0.53'], whitelist: true);
+
+    expect($result['ok'])->toBeTrue();
+    expect(PanelWhitelist::where('ip', '10.0.0.53')->exists())->toBeTrue();
+});
+
+it('does not whitelist when the unblock is aborted', function () {
+    config()->set('gupa-panel.tenant_driver', 'sqlite');
+
+    makeSyncTenant();
+
+    BaleList::create([
+        'organization_id' => (string) Str::uuid(),
+        'name' => 'Broken Tenant 2',
+        'slug' => 'broken-'.Str::random(6),
+        'database_host' => 'localhost',
+        'database_name' => 'Z:/missing-dir/broken2.sqlite',
+        'database_username' => 'root',
+        'database_password' => 'secret',
+        'is_active' => true,
+    ]);
+
+    PanelBlockedIp::create(['ip' => '10.0.0.54']);
+
+    $result = (new GupaSyncService)->unblockIps(['10.0.0.54'], whitelist: true);
+
+    expect($result['ok'])->toBeFalse();
+    expect(PanelWhitelist::where('ip', '10.0.0.54')->exists())->toBeFalse();
+    expect(PanelBlockedIp::where('ip', '10.0.0.54')->exists())->toBeTrue();
+});

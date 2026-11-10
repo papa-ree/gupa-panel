@@ -1,6 +1,7 @@
 <?php
 
 use Bale\GupaPanel\Livewire\Pages\FalsePositiveReview;
+use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelBlockedIp;
 use Bale\GupaPanel\Models\PanelWhitelist;
 use Livewire\Livewire;
@@ -55,4 +56,22 @@ it('unblocks selected ips without whitelisting', function () {
 
     expect(PanelBlockedIp::find($blocked->id))->toBeNull();
     expect(PanelWhitelist::where('ip', '66.249.66.3')->exists())->toBeFalse();
+});
+
+it('aborts the unblock when a selected ip is blacklisted', function () {
+    $blocked = PanelBlockedIp::create([
+        'ip' => '66.249.66.4',
+        'reason' => 'suspected bot',
+        'is_permanent' => true,
+    ]);
+
+    PanelBlacklist::create(['ip' => '66.249.66.4', 'reason' => 'spam']);
+
+    Livewire::test(FalsePositiveReview::class)
+        ->set('selected', [$blocked->id])
+        ->call('unblockOnly');
+
+    expect(PanelBlockedIp::find($blocked->id))->not->toBeNull();
+    expect(PanelWhitelist::where('ip', '66.249.66.4')->exists())->toBeFalse();
+    expect(session('_flash.new'))->toContain('error');
 });

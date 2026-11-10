@@ -2,8 +2,9 @@
 
 namespace Bale\GupaPanel\Livewire\Pages;
 
+use Bale\GupaPanel\Jobs\UnblockIpsOnTenants;
+use Bale\GupaPanel\Models\PanelBlacklist;
 use Bale\GupaPanel\Models\PanelBlockedIp;
-use Bale\GupaPanel\Models\PanelWhitelist;
 use Bale\GupaPanel\Services\FalsePositiveDetector;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -37,61 +38,38 @@ class FalsePositiveReview extends Component
 
     public function whitelistSelected(): void
     {
-        $whitelisted = 0;
-        $alreadyWhitelisted = 0;
-
-        foreach ($this->selected as $id) {
-            $blocked = PanelBlockedIp::find($id);
-
-            if (! $blocked) {
-                continue;
-            }
-
-            $entry = PanelWhitelist::firstOrCreate(
-                ['ip' => $blocked->ip],
-                ['reason' => 'False positive — auto-whitelisted from review'],
-            );
-
-            if ($entry->wasRecentlyCreated) {
-                $whitelisted++;
-            } else {
-                $alreadyWhitelisted++;
-            }
-
-            $blocked->delete();
-        }
-
-        $this->selected = [];
-        session()->flash('message', $this->whitelistMessage($whitelisted, $alreadyWhitelisted));
-
-        $this->mount(app(FalsePositiveDetector::class));
-    }
-
-    protected function whitelistMessage(int $whitelisted, int $alreadyWhitelisted): string
-    {
-        if ($whitelisted > 0 && $alreadyWhitelisted > 0) {
-            return "{$whitelisted} IP(s) whitelisted and unblocked. {$alreadyWhitelisted} IP(s) were already whitelisted.";
-        }
-
-        if ($alreadyWhitelisted > 0) {
-            return "{$alreadyWhitelisted} IP(s) were already whitelisted and have been unblocked.";
-        }
-
-        return 'Selected IPs have been whitelisted and unblocked.';
+        $this->unblockSelected(whitelist: true);
     }
 
     public function unblockOnly(): void
     {
-        foreach ($this->selected as $id) {
-            $blocked = PanelBlockedIp::find($id);
+        $this->unblockSelected(whitelist: false);
+    }
 
-            if ($blocked) {
-                $blocked->delete();
-            }
+    protected function unblockSelected(bool $whitelist): void
+    {
+        $ips = PanelBlockedIp::whereIn('id', $this->selected)->pluck('ip')->all();
+
+        if ($ips === []) {
+            session()->flash('message', 'No blocked IP selected.');
+
+            return;
         }
 
+        $blacklisted = PanelBlacklist::whereIn('ip', $ips)->pluck('ip')->all();
+
+        if ($blacklisted !== []) {
+            session()->flash('error', 'Aborted: remove these IPs from the Blacklist first — '.implode(', ', $blacklisted));
+
+            return;
+        }
+
+        UnblockIpsOnTenants::dispatch($ips, $whitelist);
+
         $this->selected = [];
-        session()->flash('message', 'Selected IPs have been unblocked.');
+        session()->flash('message', $whitelist
+            ? 'Whitelist & unblock scheduled for the selected IPs.'
+            : 'Unblock scheduled for the selected IPs.');
 
         $this->mount(app(FalsePositiveDetector::class));
     }

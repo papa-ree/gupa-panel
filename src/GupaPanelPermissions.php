@@ -12,6 +12,8 @@ class GupaPanelPermissions
 
     public const VIEW_BLOCKED_IPS = 'gupa-panel.blocked-ip.read';
 
+    public const UNBLOCK_BLOCKED_IPS = 'gupa-panel.blocked-ip.unblock';
+
     public const VIEW_FALSE_POSITIVE = 'gupa-panel.false-positive.review';
 
     public const VIEW_SYNC = 'gupa-panel.sync.manual';
