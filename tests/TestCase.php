@@ -3,6 +3,7 @@
 namespace Bale\GupaPanel\Tests;
 
 use Bale\Cms\CmsServiceProvider;
+use Bale\Cms\Services\TenantManager;
 use Bale\Core\CoreServiceProvider;
 use Bale\GupaPanel\GupaPanelServiceProvider;
 use Illuminate\Support\Facades\Schema;
@@ -37,6 +38,15 @@ class TestCase extends Orchestra
 
         $app['config']->set('activitylog.enabled', true);
         $app['config']->set('activitylog.default_auth_driver', 'web');
+    }
+
+    protected function tearDown(): void
+    {
+        // State statis tenant bocor antar tes dalam satu proses dan bisa
+        // mengarahkan koneksi default ke MySQL development.
+        TenantManager::clear();
+
+        parent::tearDown();
     }
 
     protected function setUp(): void
